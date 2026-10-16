@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#151514"/>
+  <!-- falling notes -->
+  <rect x="150" y="70" width="50" height="120" rx="14" fill="#fe5826"/>
+  <rect x="312" y="40" width="50" height="90" rx="14" fill="#23e7b9"/>
+  <rect x="231" y="150" width="50" height="70" rx="14" fill="#fe5826" opacity=".85"/>
+  <!-- keys -->
+  <g transform="translate(96 250)">
+    <rect width="320" height="190" rx="18" fill="#e5d7c9"/>
+    <rect x="78" width="4" height="190" fill="#151514"/>
+    <rect x="158" width="4" height="190" fill="#151514"/>
+    <rect x="238" width="4" height="190" fill="#151514"/>
+    <rect x="52" width="56" height="112" rx="8" fill="#151514"/>
+    <rect x="132" width="56" height="112" rx="8" fill="#151514"/>
+    <rect x="212" width="56" height="112" rx="8" fill="#151514"/>
+  </g>
+</svg>
