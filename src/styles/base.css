@@ -1,0 +1,159 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#app {
+  min-height: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.5rem;
+}
+
+h1 { font-size: clamp(1.75rem, 5vw, 2.5rem); }
+h2 { font-size: 1.375rem; }
+h3 { font-size: 1.125rem; }
+
+p { margin: 0 0 0.75rem; line-height: 1.5; }
+
+a { color: var(--accent); }
+
+button {
+  font: inherit;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+/* ---- Shared components ---------------------------------------------- */
+
+.screen {
+  padding: calc(var(--safe-top) + 1rem) calc(var(--safe-right) + 1rem)
+    calc(var(--safe-bottom) + var(--tabbar-h) + 1.5rem) calc(var(--safe-left) + 1rem);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.screen--full {
+  /* Full-bleed screens (the player) hide the tab bar. */
+  padding: 0;
+  max-width: none;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn:active { transform: translateY(1px); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--primary:active { background: var(--accent-press); }
+.btn--ghost { background: transparent; }
+.btn--sm { min-height: 36px; padding: 0 0.875rem; font-size: 0.875rem; }
+.btn[aria-pressed='true'] { background: var(--beige); color: var(--bg); border-color: var(--beige); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-size: 0.8125rem;
+  color: var(--beige);
+}
+
+.grid {
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+
+.row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.muted { color: var(--text-muted); }
+
+/* ---- Tab bar ----------------------------------------------------------- */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: space-around;
+  padding: 0.375rem calc(var(--safe-right) + 0.5rem) calc(var(--safe-bottom) + 0.375rem)
+    calc(var(--safe-left) + 0.5rem);
+  background: rgba(21, 21, 20, 0.92);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--surface-3);
+}
+.tabbar[hidden] { display: none; }
+.tabbar a {
+  flex: 1;
+  max-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.375rem 0;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.tabbar a svg { width: 24px; height: 24px; }
+.tabbar a[aria-current='page'] { color: var(--accent); }

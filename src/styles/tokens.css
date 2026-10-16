@@ -1,0 +1,35 @@
+/* Design tokens recovered from artmaster.com (see docs/recon.md). */
+:root {
+  --bg: #151514;
+  --surface: #1f1f1d;
+  --surface-2: #282826;
+  --surface-3: #343431;
+  --border: #4c4c47;
+  --text: #f4ede6;
+  --text-muted: #b49a81;
+  --beige: #e5d7c9;
+
+  --accent: #fe5826;
+  --accent-press: #e2481a;
+  --good: #23e7b9;
+  --warn: #f6c810;
+  --bad: #ee374d;
+
+  /* Hands on the falling-notes lane */
+  --hand-right: #fe5826;
+  --hand-left: #23e7b9;
+
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Fraunces', 'Recoleta', Georgia, serif;
+
+  --radius: 0.75rem;
+  --radius-sm: 0.375rem;
+  --radius-pill: 999px;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --tabbar-h: 64px;
+}
