@@ -7,12 +7,12 @@ The live board is GitHub Issues on this repo, milestone **MVP 1**, with labels
 |---|---|---|---|---|
 | T0 | Core shell and shared contracts | lead | `index.html`, `src/main.ts`, `src/core/**`, `src/styles/**` | done |
 | T1 | Recon of artmaster.com/Artie with rea | lead | `docs/recon.md` | done |
-| T2 | Song library content, Home / Library / Song / Progress screens | agent-songs | `src/songs/**`, `src/screens/{home,library,song,progress}.ts` | todo |
-| T3 | Falling-notes player, scoring, results | agent-player | `src/player/**`, `src/screens/{player,results}.ts`, `tests/scoring.test.ts` | todo |
-| T4 | Mic pitch detection, Web MIDI, Tuner, Settings | agent-listen | `src/listen/**`, `src/screens/{tuner,settings}.ts`, `tests/pitch.test.ts` | todo |
-| T5 | Tools hub, Metronome, Chord Finder | agent-tools | `src/screens/{tools,metronome,chords}.ts` | todo |
-| T6 | PWA: manifest, icons, offline service worker, GitHub Pages deploy | lead | `public/**`, `scripts/**`, `.github/**` | todo |
-| T7 | Integration and QA at iPhone / iPad sizes | lead | any | todo |
+| T2 | Song library content, Home / Library / Song / Progress screens | agent-songs | `src/songs/**`, `src/screens/{home,library,song,progress}.ts` | done |
+| T3 | Falling-notes player, scoring, results | agent-player | `src/player/**`, `src/screens/{player,results}.ts`, `tests/scoring.test.ts` | done |
+| T4 | Mic pitch detection, Web MIDI, Tuner, Settings | agent-listen | `src/listen/**`, `src/screens/{tuner,settings}.ts`, `tests/pitch.test.ts` | done |
+| T5 | Tools hub, Metronome, Chord Finder | agent-tools | `src/screens/{tools,metronome,chords}.ts` | done |
+| T6 | PWA: manifest, icons, offline service worker, GitHub Pages deploy | lead | `public/**`, `scripts/**`, `.github/**` | done |
+| T7 | Integration and QA at iPhone / iPad sizes | lead | any | done |
 
 ## Definition of done (every ticket)
 

@@ -47,8 +47,8 @@ const CSS = `
 .cf-opts { display: grid; gap: 1rem; }
 .cf-opt h3 { font-family: var(--font-sans); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--text-muted); margin: 0 0 0.5rem; }
-.cf-roots { display: grid; gap: 0.375rem; grid-template-columns: repeat(6, 1fr); }
-.cf-roots .btn { padding: 0 0.25rem; font-size: 0.875rem; }
+.cf-roots { display: grid; gap: 0.375rem; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.cf-roots .btn { padding: 0 0.125rem; font-size: 0.8125rem; min-width: 0; white-space: nowrap; overflow: hidden; }
 .cf-quals { display: grid; gap: 0.375rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); }
 .cf-quals .btn { padding: 0 0.5rem; justify-content: space-between; font-size: 0.875rem; }
 .cf-quals .btn small { opacity: 0.7; font-weight: 600; }
@@ -57,7 +57,7 @@ const CSS = `
 .cf-matches .chip { font-size: 1rem; min-height: 36px; padding: 0 0.875rem; }
 .cf[data-mode='find'] [data-only='name'], .cf[data-mode='name'] [data-only='find'] { display: none; }
 @media (min-width: 900px) {
-  .cf-roots { grid-template-columns: repeat(12, 1fr); }
+  .cf-roots { grid-template-columns: repeat(12, minmax(0, 1fr)); }
 }
 `;
 

@@ -46,7 +46,19 @@ async function render(): Promise<void> {
 
   if (typeof cleanup === 'function') cleanup();
   cleanup = undefined;
-  const screen = await match.screen();
+  let screen: Screen;
+  try {
+    screen = await match.screen();
+    sessionStorage.removeItem('keys.reloaded');
+  } catch (err) {
+    // A deploy replaced the hashed chunks this page was built against. Reload once to pick up the new build.
+    if (!sessionStorage.getItem('keys.reloaded')) {
+      sessionStorage.setItem('keys.reloaded', '1');
+      location.reload();
+      return;
+    }
+    throw err;
+  }
   mountEl.replaceChildren();
   mountEl.scrollTop = 0;
   window.scrollTo(0, 0);
