@@ -139,15 +139,15 @@ export function playNote(midi: number, opts: { when?: number; duration?: number;
   };
 }
 
-/** Short percussive click for metronomes and count-ins. */
-export function playClick(accent: boolean, when?: number): void {
+/** Short percussive click for metronomes and count-ins. `level` (0–1) scales the volume. */
+export function playClick(accent: boolean, when?: number, level = 1): void {
   const c = getAudioContext();
   const t = when ?? c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
   o.frequency.value = accent ? 1760 : 1175;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(accent ? 0.6 : 0.35, t + 0.001);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, (accent ? 0.6 : 0.35) * level), t + 0.001);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   o.connect(g).connect(getMaster());
   o.start(t);

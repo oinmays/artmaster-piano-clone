@@ -52,16 +52,22 @@ export const CHORD_QUALITIES: Record<string, { label: string; intervals: number[
   add9: { label: 'Add 9', intervals: [0, 4, 7, 14] },
 };
 
-/** Build a chord's midi notes; inversion 0 = root position. */
+/**
+ * Build a chord's midi notes; inversion 0 = root position, 1 = third in the bass, and so on.
+ * Tones are stacked upward from the bass in chord-tone order, so extensions (add9) invert correctly.
+ */
 export function chordNotes(rootMidi: number, quality: string, inversion = 0): number[] {
   const q = CHORD_QUALITIES[quality];
   if (!q) return [];
-  const notes = q.intervals.map((i) => rootMidi + i);
-  for (let i = 0; i < inversion % notes.length; i++) {
-    const n = notes.shift()!;
-    notes.push(n + 12);
+  const n = q.intervals.length;
+  const out: number[] = [];
+  for (let j = 0; j < n; j++) {
+    const iv = q.intervals[(inversion + j) % n];
+    let note = rootMidi + (j === 0 ? iv % 12 : iv);
+    while (out.length && note <= out[out.length - 1]) note += 12;
+    out.push(note);
   }
-  return notes;
+  return out;
 }
 
 export const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
