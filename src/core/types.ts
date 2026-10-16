@@ -43,7 +43,10 @@ export interface PlayOptions {
 /** A note the learner played, from any input source. */
 export interface PlayedNote {
   midi: number;
-  /** performance.now() timestamp in ms. */
+  /**
+   * performance.now() timestamp in ms of the note's attack. Mic events are already
+   * compensated for settings.micLatencyMs; consumers must not subtract it again.
+   */
   time: number;
   source: 'touch' | 'mic' | 'midi';
   velocity?: number;

@@ -1,0 +1,41 @@
+export interface MicOptions {
+  a4?: number;
+  /**
+   * The notes the player currently expects. When provided, the detector can
+   * confirm those pitches directly (far more reliable for chords than blind
+   * polyphonic detection).
+   */
+  expected?: () => number[];
+  /**
+   * Milliseconds subtracted from each emitted note's `time` to undo mic latency.
+   * Defaults to the saved `settings.micLatencyMs`.
+   */
+  latencyMs?: number;
+}
+
+export interface Listener {
+  stop(): void;
+}
+
+/** One analysis frame for the pitch stream (tuner, meters, calibration). */
+export interface PitchFrame {
+  /** Hz, 0 when no confident pitch. */
+  freq: number;
+  /** 0..1 YIN clarity. */
+  clarity: number;
+  /** RMS of the newest hop of samples. */
+  rms: number;
+  /** performance.now() estimate of this frame. */
+  time: number;
+  /** True on the frame where a new sound (note or click) starts. */
+  onset: boolean;
+  /** Current adaptive noise floor (RMS). */
+  floor: number;
+}
+
+export interface PitchStreamOptions {
+  minFreq?: number;
+  maxFreq?: number;
+  /** Analysis window for YIN; default ~85 ms (4096 at 48 kHz). */
+  windowSize?: number;
+}
