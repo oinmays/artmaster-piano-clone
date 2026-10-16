@@ -11,7 +11,7 @@ The live board is GitHub Issues on this repo, milestone **MVP 1**, with labels
 | T3 | Falling-notes player, scoring, results | agent-player | `src/player/**`, `src/screens/{player,results}.ts`, `tests/scoring.test.ts` | done |
 | T4 | Mic pitch detection, Web MIDI, Tuner, Settings | agent-listen | `src/listen/**`, `src/screens/{tuner,settings}.ts`, `tests/pitch.test.ts` | done |
 | T5 | Tools hub, Metronome, Chord Finder | agent-tools | `src/screens/{tools,metronome,chords}.ts` | done |
-| T6 | PWA: manifest, icons, offline service worker, GitHub Pages deploy | lead | `public/**`, `scripts/**`, `.github/**` | done |
+| T6 | PWA: manifest, icons, offline service worker, GitHub Pages deploy | lead | `public/**`, `scripts/**`, `.github/**` | code done; hosting blocked |
 | T7 | Integration and QA at iPhone / iPad sizes | lead | any | done |
 
 ## Definition of done (every ticket)
