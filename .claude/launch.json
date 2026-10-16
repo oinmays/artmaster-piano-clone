@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "keys-dev", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--port", "5199", "--strictPort"], "port": 5199 },
+    { "name": "keys-preview", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "preview", "--port", "5198", "--strictPort"], "port": 5198 }
+  ]
+}
