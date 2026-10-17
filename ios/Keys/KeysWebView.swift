@@ -47,6 +47,12 @@ struct KeysWebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             // The page may have reloaded: re-send the current device list.
             bridge.sendDevices()
+            #if DEBUG
+            // Confirms the bridge from the device log: `log stream --predicate 'eventMessage CONTAINS "Keys:"'`.
+            webView.evaluateJavaScript("JSON.stringify(window.keysNative)") { result, error in
+                NSLog("Keys: loaded \(webView.url?.absoluteString ?? "?") keysNative=\(result ?? error ?? "nil")")
+            }
+            #endif
         }
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
