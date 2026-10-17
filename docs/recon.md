@@ -14,7 +14,7 @@ npx rea-agents analyze-web-bundle http://127.0.0.1:9333 <target> --observation-m
 npx rea-agents capture-web-screenshot http://127.0.0.1:9333 <target>
 ```
 
-Screenshot: [`rea-artie-capture.png`](rea-artie-capture.png).
+A viewport screenshot was captured for reference but is not kept in the repo (third-party imagery).
 
 ## What the product is
 
