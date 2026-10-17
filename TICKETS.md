@@ -63,10 +63,12 @@ Milestone **MVP 1.3 Fingers, songs, versions**. Requested after the first sensit
 | T20 | Version, build date/time and commit in Settings; changelog screen generated from git history at build (#21) | v4-t18 | `vite.config.ts`, `.github/workflows/deploy.yml`, `src/screens/changelog.ts`, route in `src/main.ts`, Settings footer, `sw/sw.js` | done (f714bc4) |
 | T21 | Load your own song: MIDI file import, on device only, "My songs" in the library (#22) | t21 | `src/songs/midifile.ts`, `src/songs/mine.ts`, `tests/midifile.test.ts`, library screen | done (4403328) |
 | T22 | 6–8 more public-domain songs (#23): Aura Lee, Silent Night, Brahms' Lullaby, Auld Lang Syne, Scarborough Fair, The Entertainer | t22 | `src/songs/catalog.ts` | done (5007aa1) |
-| T23 | Audio → MIDI on the device with Spotify's Basic Pitch (TF.js), lazy-loaded and cached model, progress, ~6 min cap (#24) | t23 | `src/songs/audio.ts`, `src/songs/audioworker.ts`, `public/models/**`, `vite.config.ts`, `sw/sw.js` | in progress |
-| T24 | Import several files at once: multi-select MIDI + audio, background queue with per-file status, cancel, duplicate detection (#25) | t24 | `src/songs/queue.ts`, `tests/queue.test.ts`, library screen | in progress |
-| T25 | Smart artist/title from messy filenames, MIDI meta and ID3 tags; tidy My songs grouped by artist (#26) | t25 | `src/songs/naming.ts`, `src/songs/id3.ts`, `tests/naming.test.ts`, `src/songs/mine.ts`, library screen | in progress |
-| T26 | Instrument-aware track picking: GM programs, piano tracks preferred, Tracks sheet to assign RH/LH/ignore, saved with the song (#27) | t26 | `src/songs/midifile.ts`, `src/songs/gm.ts`, `src/screens/tracks.ts`, `tests/midifile.test.ts` | in progress |
+| T23 | Audio → MIDI on the device with Spotify's Basic Pitch (TF.js), lazy-loaded and cached model, progress, ~6 min cap (#24) | t23 | `src/songs/audio.ts`, `src/songs/audio.worker.ts`, `src/songs/audionotes.ts`, `src/songs/tf-lean.ts`, `public/models/basic-pitch/**`, `vite.config.ts`, `sw/sw.js`, `tests/audio.test.ts` | done (5d56869) |
+| T24 | Import several files at once: multi-select MIDI + audio, background queue with per-file status, cancel, duplicate detection (#25) | t24 | `src/songs/queue.ts`, `src/songs/queueview.ts`, `src/songs/importbadge.ts`, `src/songs/importer.ts`, `src/songs/mine.ts`, `src/songs/sources.ts`, `tests/queue.test.ts`, library screen | done (6c4853f) |
+| T25 | Smart artist/title from messy filenames, MIDI meta and ID3 tags; tidy My songs grouped by artist (#26) | t25 | `src/songs/naming.ts`, `src/songs/id3.ts`, `src/songs/mycards.ts`, `tests/naming.test.ts`, `tests/id3.test.ts`, `tests/mycards.test.ts` | done (f696ac2) |
+| T26 | Instrument-aware track picking: GM programs, piano tracks preferred, Tracks sheet to assign RH/LH/ignore, saved with the song (#27) | t26 | `src/songs/midifile.ts`, `src/songs/gm.ts`, `src/screens/tracks.ts`, `tests/midifile.test.ts`, `tests/gm.test.ts`, Tracks link on the song screen | done (d4b6989) |
+
+T23–T26 were built in one chat by four parallel agents on separate files against shared stubs (340f770), then integrated and checked in the browser.
 
 T19–T22 run as parallel chats in separate worktrees; each rebases on origin/main, passes typecheck/test/build, pushes to main and watches the deploy.
 
