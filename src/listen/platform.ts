@@ -63,7 +63,8 @@ function probe(): PlatformProbe {
 /** iPhone, iPod or iPad, including iPadOS 13+ which reports itself as a Mac. */
 export function isAppleMobile(p: PlatformProbe = probe()): boolean {
   if (/iPhone|iPad|iPod/.test(p.userAgent)) return true;
-  return (p.platform === 'MacIntel' || /Macintosh/.test(p.userAgent)) && (p.maxTouchPoints ?? 0) > 1;
+  // Trust the user agent over navigator.platform, which emulators and some Android builds misreport.
+  return /Macintosh/.test(p.userAgent) && (p.maxTouchPoints ?? 0) > 1;
 }
 
 export function midiPlatform(p: PlatformProbe = probe()): MidiPlatform {

@@ -28,6 +28,12 @@ const TOOLS = [
     icon: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>'),
   },
   {
+    href: '#/tools/keyboard',
+    title: 'Connect a keyboard',
+    desc: 'Use a USB cable instead of the mic for exact notes and no room noise.',
+    icon: svg('<rect x="2" y="12" width="20" height="9" rx="1.5"/><path d="M7 12v9M12 12v9M17 12v9"/><path d="M12 12V8"/><rect x="9.5" y="4" width="5" height="4" rx="1"/><path d="M11 4V2M13 4V2"/>'),
+  },
+  {
     href: '#/tools/tuner',
     title: 'Tuner',
     desc: 'Check your piano or voice against A440 using the microphone.',

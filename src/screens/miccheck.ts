@@ -2,14 +2,25 @@
  * Mic check (`#/tools/mic`): live proof that the microphone hears the piano.
  * Runs the same listening pipeline as the player and shows its level, the live pitch,
  * which key (and octave) that is, and every note it would score.
+ * Also checks a USB/MIDI keyboard: whether this device can read one, which are connected,
+ * and the notes arriving from it. MIDI listens from the moment the screen opens.
  */
 import type { Screen } from '../core/types';
 import { createKeyboard } from '../core/keyboard';
-import { onNoteOn } from '../core/input';
+import { onNoteOff, onNoteOn } from '../core/input';
 import { unlockAudio } from '../core/audio';
 import { getSettings } from '../core/store';
 import { midiToName } from '../core/music';
-import { micErrorMessage, micSupported, startMic, type Listener, type MicFrameInfo } from '../listen';
+import {
+  micErrorMessage,
+  micSupported,
+  midiHelp,
+  midiPossible,
+  startMic,
+  startMidi,
+  type Listener,
+  type MicFrameInfo,
+} from '../listen';
 import { freqToNote } from '../listen/pitch';
 
 const CSS = `
@@ -28,6 +39,11 @@ const CSS = `
 .mc-kb { height: 120px; margin-top: 1rem; border-radius: var(--radius-sm); overflow: hidden; }
 .mc-heard { display: flex; gap: 0.375rem; flex-wrap: wrap; min-height: 28px; margin-top: 0.5rem; }
 .mc-heard .chip.is-new { background: var(--good); color: #0b0b0a; }
+.mc-midi-status { font-weight: 600; margin: 0.25rem 0 0; }
+.mc-midi-status[data-s='ok'] { color: var(--good); }
+.mc-midi-status[data-s='quiet'] { color: var(--warn); }
+.mc-midi-status[data-s='err'] { color: var(--bad); }
+.mc-midi p { margin: 0.375rem 0 0; }
 .mc-cards { display: grid; gap: 0.875rem; margin-top: 1rem; }
 .mc-tips { margin: 0; padding-left: 1.1rem; line-height: 1.55; }
 .mc-tips li { margin-bottom: 0.375rem; }
@@ -77,6 +93,15 @@ const screen: Screen = (root) => {
         <div class="mc-kb"></div>
         <p class="eyebrow" style="margin-top:1rem">Notes a song would count <span class="mc-count"></span></p>
         <div class="mc-heard"></div>
+      </div>
+
+      <div class="card mc-wide mc-midi">
+        <p class="eyebrow">USB keyboard (MIDI)</p>
+        <p class="mc-midi-status" role="status" data-s="idle"></p>
+        <p class="muted mc-midi-body"></p>
+        <p class="eyebrow" style="margin-top:1rem">Notes from the keyboard</p>
+        <div class="mc-heard mc-midi-heard"></div>
+        <p><a href="#/tools/keyboard">Connect a keyboard: which cable?</a></p>
       </div>
 
       <div class="card mc-wide">
@@ -152,7 +177,50 @@ const screen: Screen = (root) => {
     else setStatus('ok', 'Listening.');
   };
 
+  // ---- MIDI ---------------------------------------------------------------------
+  const midiStatus = $('.mc-midi-status');
+  const midiBody = $('.mc-midi-body');
+  const midiHeard = $('.mc-midi-heard');
+  const setMidi = (s: string, text: string, body = '') => {
+    midiStatus.dataset.s = s;
+    midiStatus.textContent = text;
+    midiBody.textContent = body;
+  };
+  const help = midiHelp();
+  let midi: Listener | null = null;
+  let midiNotes = 0;
+  let disposed = false;
+  const onDevices = (names: string[]) => {
+    if (names.length) setMidi('ok', `Connected: ${names.join(', ')}`, midiNotes ? '' : 'Play a key on it.');
+    else setMidi('quiet', 'No keyboard connected.', help.body);
+  };
+  if (midiPossible()) {
+    setMidi('idle', 'Looking for keyboards…', help.body);
+    void startMidi({ onDevices }).then((l) => {
+      if (disposed) return l?.stop();
+      midi = l;
+      if (!l) setMidi('err', 'MIDI access was blocked.', 'Allow MIDI devices for this site in the browser, then reopen Mic check.');
+    });
+  } else {
+    setMidi('err', help.title, help.body);
+  }
+
+  const offMidiUp = onNoteOff((n) => {
+    if (n.source === 'midi') keyboard.mark(n.midi, null);
+  });
+
   const offNote = onNoteOn((n) => {
+    if (n.source === 'midi') {
+      if (!midiNotes++) midiBody.textContent = '';
+      keyboard.mark(n.midi, 'good');
+      midiHeard.querySelector('.is-new')?.classList.remove('is-new');
+      const chip = document.createElement('span');
+      chip.className = 'chip is-new';
+      chip.textContent = midiToName(n.midi);
+      midiHeard.prepend(chip);
+      while (midiHeard.children.length > 8) midiHeard.lastElementChild!.remove();
+      return;
+    }
     if (n.source !== 'mic') return;
     heard++;
     countEl.textContent = `(${heard})`;
@@ -193,8 +261,11 @@ const screen: Screen = (root) => {
 
   return () => {
     cancelAnimationFrame(raf);
+    disposed = true;
     mic?.stop();
+    midi?.stop();
     offNote();
+    offMidiUp();
     keyboard.destroy();
     style.remove();
   };

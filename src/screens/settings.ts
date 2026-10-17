@@ -7,7 +7,8 @@ import {
   listMidiInputs,
   micErrorMessage,
   micSupported,
-  midiSupported,
+  midiHelp,
+  midiPossible,
   startPitchStream,
   type Listener,
   type PitchFrame,
@@ -25,7 +26,8 @@ const css = `
 .stg-row > label, .stg-label { flex: 1; min-width: 9rem; }
 .stg-sub { display: block; font-size: 0.8125rem; color: var(--text-muted); margin-top: 2px; }
 .stg-seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
-.stg-seg .btn { border: 0; border-radius: 0; min-width: 7.5rem; }
+.stg-seg { max-width: 100%; }
+.stg-seg .btn { border: 0; border-radius: 0; min-width: 0; flex: 1 1 auto; padding-left: 0.75rem; padding-right: 0.75rem; }
 .stg-seg .btn + .btn { border-left: 1px solid var(--border); }
 .stg-switch { position: relative; width: 52px; height: 32px; border-radius: var(--radius-pill); border: 0;
   background: var(--surface-3); cursor: pointer; flex: none; padding: 0; margin: 6px 0; }
@@ -77,27 +79,34 @@ const screen: Screen = (root) => {
     <div class="card stg-card">
       <h2>How you play</h2>
       <div class="stg-row">
-        <span class="stg-label">Input<span class="stg-sub">Microphone listens to your real piano.</span></span>
+        <span class="stg-label">Input<span class="stg-sub">Microphone listens to your real piano. A USB keyboard sends exact notes.</span></span>
         <div class="stg-seg" role="group" aria-label="Input mode">
           <button class="btn" data-input="mic">Microphone</button>
           <button class="btn" data-input="touch">Touch only</button>
+          <button class="btn" data-input="midi">USB keyboard (MIDI)</button>
         </div>
       </div>
       <p class="stg-msg stg-input-msg muted"></p>
       ${
-        midiSupported()
+        midiPossible()
           ? `<div class="stg-row">
         <span class="stg-label">MIDI keyboard<span class="stg-sub stg-midi-status">Used automatically when connected.</span></span>
         <button class="btn btn--sm" data-act="midi">Check</button>
       </div>`
-          : ''
+          : `<div class="stg-row">
+        <span class="stg-label">${midiHelp().title}<span class="stg-sub">${midiHelp().body}</span></span>
+      </div>`
       }
+      <div class="stg-row">
+        <span class="stg-label">Which cable?<span class="stg-sub">What to plug into what, for iPad, iPhone, Mac, PC and Android.</span></span>
+        <a class="btn btn--sm" href="#/tools/keyboard">Connect a keyboard</a>
+      </div>
     </div>
 
     <div class="card stg-card">
       <h2>Listening</h2>
       <div class="stg-row">
-        <span class="stg-label" id="stg-oct-l">Accept any octave<span class="stg-sub">Count the right note even if it's played higher or lower than shown.</span></span>
+        <span class="stg-label" id="stg-oct-l">Accept any octave<span class="stg-sub">Microphone: count the right note even if it's played higher or lower than shown. A MIDI keyboard always needs the exact key.</span></span>
         <button class="stg-switch" role="switch" aria-labelledby="stg-oct-l" data-act="octave"></button>
       </div>
       <div class="stg-row">
@@ -171,7 +180,11 @@ const screen: Screen = (root) => {
         ? micSupported()
           ? 'Songs listen through the microphone. Tap keys on screen too, if you like.'
           : "This browser can't use the microphone, so songs will use touch."
-        : 'Songs are played on the on-screen keyboard.';
+        : s.input === 'midi'
+          ? midiPossible()
+            ? 'Notes come straight from the keyboard over the cable: no microphone, and the exact octave counts. Until one is plugged in, use the on-screen keys.'
+            : "Notes would come straight from the keyboard, but this device can't read MIDI (see below), so songs will use touch."
+          : 'Songs are played on the on-screen keyboard.';
   };
   inputBtns.forEach((b) =>
     b.addEventListener('click', () => {
@@ -188,7 +201,7 @@ const screen: Screen = (root) => {
     const names = await listMidiInputs();
     status.textContent =
       names == null
-        ? 'MIDI access was blocked or is unavailable.'
+        ? 'MIDI access was blocked. Allow MIDI devices for this site in the browser, then check again.'
         : names.length
           ? `Connected: ${names.join(', ')}`
           : 'No MIDI keyboard found. Plug one in and check again.';

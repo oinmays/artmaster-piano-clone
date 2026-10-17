@@ -7,10 +7,19 @@ import { createKeyboard, type KeyMark } from '../core/keyboard';
 import { onNoteOn } from '../core/input';
 import { unlockAudio } from '../core/audio';
 import { navigate } from '../core/router';
-import { addResult, getSettings, updateSettings } from '../core/store';
+import { addResult, getSettings, updateSettings, type Settings } from '../core/store';
 import { isBlack, midiToName } from '../core/music';
 import { getSong } from '../songs';
-import { micErrorMessage, micSupported, startMic, type Listener } from '../listen';
+import {
+  micErrorMessage,
+  micSupported,
+  midiHelp,
+  midiPermission,
+  midiPossible,
+  startMic,
+  startMidi,
+  type Listener,
+} from '../listen';
 import { Engine, clampTempo } from '../player/engine';
 import { createLane } from '../player/lane';
 import { parsePlayParams, playPath } from '../player/options';
@@ -69,6 +78,9 @@ const CSS = `
 .kp-mic span { min-width: 2.2em; font-variant-numeric: tabular-nums; }
 .kp-mic span[data-ok='1'] { color: var(--good); }
 .kp-mic span[data-ok='0'] { color: var(--bad); }
+.kp-mic-bar[hidden], .kp-dev[hidden] { display: none; }
+.kp-dev { max-width: 10em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
+.kp-ok { font-size: 0.875rem; color: var(--good); margin: 0; }
 .kp-link { font-size: 0.8125rem; color: var(--accent); }
 .kp-msg { font-size: 0.875rem; color: var(--warn); margin: 0; }
 .kp-rotate { font-size: 0.8125rem; color: var(--text-muted); margin: 0; display: flex; gap: 0.375rem;
@@ -79,6 +91,7 @@ const CSS = `
   .kp-tempo span { min-width: 2.6em; font-size: 0.8125rem; }
   .kp-ibtn { padding: 0 0.25rem; }
   .kp-name small { display: none; }
+  .kp-dev { max-width: 5em; }
 }
 `;
 
@@ -151,6 +164,8 @@ function micErrorText(err: unknown): string {
   return `${base || 'The microphone could not start.'} Using touch keys for now.`;
 }
 
+const esc = (t: string) => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+
 const screen: Screen = (root, params) => {
   injectStyles();
   const opts = parsePlayParams(params);
@@ -174,7 +189,7 @@ const screen: Screen = (root, params) => {
         <div class="kp-name"></div>
         <div class="kp-prog" role="progressbar" aria-label="Progress"><i></i></div>
       </div>
-      <div class="kp-mic" hidden title="Microphone: level and last note heard"><div class="kp-mic-bar"><i></i></div><span>–</span></div>
+      <div class="kp-mic" hidden><div class="kp-mic-bar"><i></i></div><b class="kp-dev" hidden></b><span>–</span></div>
       <div class="kp-tempo">
         <button class="kp-ibtn" data-act="slower" aria-label="Slower">${ICON.minus}</button>
         <span aria-live="polite"></span>
@@ -386,19 +401,44 @@ const screen: Screen = (root, params) => {
       ? `<p class="kp-rotate">${ICON.rotate}Rotate for a bigger keyboard</p>`
       : '';
 
-  function showStart(message = ''): void {
+  /** What the start card says under the input choice. */
+  function inputNote(chosen: Settings['input']): string {
+    const guide = '<a class="kp-link" href="#/tools/keyboard">Connect a keyboard</a>';
+    if (usingMidi())
+      return `<p class="kp-ok">MIDI: ${esc(midiDevices.join(', '))}</p>
+        <p class="kp-small">Notes come straight from the keyboard.${
+          settings.input === 'midi' ? '' : ' Unplug it to use touch keys or the microphone.'
+        }</p>`;
+    if (chosen !== 'midi') return '<a class="kp-link" href="#/tools/mic">Test the microphone first</a>';
+    if (!midiPossible()) {
+      const h = midiHelp();
+      return `<p class="kp-msg"><b>${h.title}.</b> ${h.body}</p>${guide}`;
+    }
+    if (midiDenied)
+      return `<p class="kp-msg">MIDI access was blocked. Allow MIDI devices for this site in the browser, then reload.</p>${guide}`;
+    return `<p class="kp-small">No keyboard found yet. Plug it in with a data cable; touch keys work meanwhile.</p>${guide}`;
+  }
+
+  let cardMode: '' | 'start' | 'pause' = '';
+  let startMessage = '';
+
+  function showStart(message = startMessage): void {
+    startMessage = message;
+    cardMode = 'start';
     settings = getSettings();
     const micOk = micSupported();
-    const useMic = settings.input === 'mic' && micOk;
+    // A connected keyboard wins; otherwise the saved choice (mic falls back to touch where impossible).
+    const chosen: Settings['input'] = usingMidi() ? 'midi' : settings.input === 'mic' && !micOk ? 'touch' : settings.input;
     card.innerHTML = `
       <p class="eyebrow">${LEVEL_LABEL[opts.level]} · ${HANDS_LABEL[opts.hands]} · ${engine.tempo}%${loopLabel}</p>
       <h2></h2>
       <div><p class="kp-small" style="margin-bottom:0.375rem">Listen with</p>
       ${seg('Input', [
-        ['touch', 'Touch keys', !useMic],
-        ['mic', 'Microphone', useMic, !micOk],
+        ['touch', 'Touch keys', chosen === 'touch'],
+        ['mic', 'Microphone', chosen === 'mic', !micOk],
+        ['midi', 'MIDI keyboard', chosen === 'midi'],
       ])}
-      <a class="kp-link" href="#/tools/mic">Test the microphone first</a></div>
+      ${inputNote(chosen)}</div>
       ${seg('Guide notes', [
         ['off', 'Just me', !playAlong],
         ['on', 'Play along', playAlong],
@@ -415,6 +455,7 @@ const screen: Screen = (root, params) => {
   }
 
   function showPause(): void {
+    cardMode = 'pause';
     card.innerHTML = `
       <p class="eyebrow">Paused</p>
       <h2></h2>
@@ -433,39 +474,99 @@ const screen: Screen = (root, params) => {
   }
 
   let mic: Listener | null = null;
+  let micStarting = false;
   let disposed = false;
   let starting = false;
+  let started = false;
+
+  // ---- MIDI -------------------------------------------------------------------
+  // A connected keyboard is used for this session whatever the saved input says (it's
+  // exact, and the mic would also hear its speakers). Unplugged, the saved choice is back.
+  let midiListener: Listener | null = null;
+  let midiAsked = false;
+  let midiDenied = false;
+  let midiDevices: string[] = [];
+  const usingMidi = () => midiDevices.length > 0;
+
+  async function connectMidi(): Promise<void> {
+    if (midiAsked || !midiPossible()) return;
+    midiAsked = true;
+    const l = await startMidi({ onDevices: onMidiDevices });
+    if (disposed) return l?.stop();
+    midiListener = l;
+    midiDenied = !l;
+  }
+
+  function onMidiDevices(names: string[]): void {
+    if (disposed || names.join('\n') === midiDevices.join('\n')) return;
+    const was = usingMidi();
+    midiDevices = names;
+    renderBadge();
+    if (cardMode === 'start') showStart();
+    if (!started || was === usingMidi()) return;
+    void syncMic().then((warn) => {
+      if (disposed) return;
+      if (warn) toast(warn, 5000);
+      else if (usingMidi()) toast(`MIDI: ${names.join(', ')}. Playing from the keyboard.`);
+      else toast(`Keyboard unplugged. Using ${mic ? 'the microphone' : 'touch keys'}.`);
+    });
+  }
+
+  // Connect quietly when MIDI is the chosen input or already allowed: no permission
+  // prompt for someone who never asked for MIDI. Picking MIDI (or Start with it chosen) asks.
+  if (midiPossible()) {
+    void midiPermission().then((p) => {
+      if (!disposed && (p === 'granted' || getSettings().input === 'midi')) void connectMidi().then(refreshStart);
+    });
+  }
+  const refreshStart = () => {
+    if (!disposed && cardMode === 'start') showStart();
+  };
+
+  // ---- Mic --------------------------------------------------------------------
+  const wantMic = () => !usingMidi() && getSettings().input === 'mic' && micSupported();
+
+  /** Start or stop the mic to match the current input. Resolves to a warning, or ''. */
+  async function syncMic(): Promise<string> {
+    if (!wantMic()) {
+      mic?.stop();
+      mic = null;
+      renderBadge();
+      return '';
+    }
+    if (mic || micStarting) return '';
+    micStarting = true;
+    try {
+      const l = await startMic({
+        a4: settings.a4,
+        expected: micExpected,
+        onFrame: (f) => {
+          micLevel = f.rms;
+          micGate = f.gate;
+        },
+      });
+      if (disposed || !wantMic()) l.stop(); // a keyboard arrived while the mic was starting
+      else mic = l;
+      return '';
+    } catch (err) {
+      return micErrorText(err);
+    } finally {
+      micStarting = false;
+      renderBadge();
+    }
+  }
 
   async function begin(): Promise<void> {
     if (starting) return;
     starting = true;
     await unlockAudio();
-    let warn = '';
-    if (getSettings().input === 'mic' && micSupported()) {
-      try {
-        const l = await startMic({
-          a4: settings.a4,
-          expected: micExpected,
-          onFrame: (f) => {
-            micLevel = f.rms;
-            micGate = f.gate;
-          },
-        });
-        if (disposed) {
-          l.stop();
-          return;
-        }
-        mic = l;
-      } catch (err) {
-        warn = micErrorText(err);
-      }
-    }
+    if (getSettings().input === 'midi') await connectMidi();
+    const warn = await syncMic();
     if (disposed) return;
-    if (mic) {
-      micEl.hidden = false;
-      drawMic();
-    }
+    started = true;
+    cardMode = '';
     overlay.hidden = true;
+    renderBadge();
     engine.start(performance.now());
     renderTop();
     if (warn) toast(warn, 5000);
@@ -479,6 +580,7 @@ const screen: Screen = (root, params) => {
   }
 
   function resume(): void {
+    cardMode = '';
     overlay.hidden = true;
     void unlockAudio();
     engine.resume();
@@ -491,8 +593,12 @@ const screen: Screen = (root, params) => {
     if (segBtn) {
       const segName = segBtn.parentElement!.getAttribute('aria-label');
       const v = segBtn.dataset.v;
-      if (segName === 'Input' && (v === 'mic' || v === 'touch')) {
+      if (segName === 'Input' && (v === 'mic' || v === 'touch' || v === 'midi')) {
         settings = updateSettings({ input: v });
+        if (v === 'midi') void connectMidi().then(refreshStart);
+        renderBadge();
+        showStart();
+        return;
       } else if (segName === 'Guide notes') {
         playAlong = v === 'on';
         engine.playAlong = playAlong;
@@ -508,9 +614,11 @@ const screen: Screen = (root, params) => {
     else if (act === 'end') engine.finish();
   });
 
-  // ---- Mic feedback -----------------------------------------------------------
+  // ---- Input badge: mic level, or the MIDI device; plus the last note --------------
   const micEl = $('.kp-mic');
+  const micBar = $('.kp-mic-bar');
   const micFill = $('.kp-mic-bar i');
+  const devEl = $('.kp-dev');
   const micNote = $('.kp-mic span');
   let micLevel = 0;
   let micGate = 1;
@@ -522,16 +630,42 @@ const screen: Screen = (root, params) => {
     micEl.classList.toggle('is-loud', micLevel >= micGate);
   };
 
+  let badgeMode = '';
+  function renderBadge(): void {
+    if (disposed) return;
+    const mode = usingMidi() ? 'midi' : mic ? 'mic' : getSettings().input === 'midi' && midiPossible() ? 'none' : '';
+    const label = mode === 'midi' ? `MIDI: ${midiDevices.join(', ')}` : 'MIDI: none';
+    if (mode === badgeMode && devEl.textContent === label) return;
+    if (mode !== badgeMode) {
+      micNote.textContent = '–';
+      delete micNote.dataset.ok;
+    }
+    badgeMode = mode;
+    cancelAnimationFrame(micRaf);
+    micEl.hidden = !mode;
+    micBar.hidden = mode !== 'mic';
+    devEl.hidden = mode === 'mic';
+    devEl.textContent = label;
+    micEl.title =
+      mode === 'mic'
+        ? 'Microphone: level and last note heard'
+        : mode === 'midi'
+          ? 'MIDI keyboard: device and last note played'
+          : 'MIDI chosen, but no keyboard is connected';
+    if (mode === 'mic') drawMic();
+  }
+
   const expandedBuf: number[] = [];
   const micExpected = (): number[] =>
     settings.anyOctave ? expandOctaves(engine.expectedNow(), expandedBuf) : engine.expectedNow();
 
   // ---- Input ------------------------------------------------------------------
-  // Mic notes arrive already latency-compensated by the listen module.
+  // Mic notes arrive already latency-compensated by the listen module. Any-octave is for
+  // the mic only: a MIDI keyboard says exactly which key was pressed.
   const offNote = onNoteOn((n) => {
     let midi = n.midi;
-    if (n.source !== 'touch' && settings.anyOctave) midi = octaveMatch(midi, engine.expectedNow());
-    if (n.source === 'mic') {
+    if (n.source === 'mic' && settings.anyOctave) midi = octaveMatch(midi, engine.expectedNow());
+    if (n.source !== 'touch') {
       micNote.textContent = midiToName(n.midi);
       micNote.dataset.ok = engine.expectedNow().includes(midi) ? '1' : '0';
     }
@@ -557,6 +691,7 @@ const screen: Screen = (root, params) => {
   };
   sectionEl.addEventListener('touchmove', noScroll, { passive: false });
 
+  renderBadge();
   showStart();
 
   return () => {
@@ -570,6 +705,8 @@ const screen: Screen = (root, params) => {
     cancelAnimationFrame(micRaf);
     mic?.stop();
     mic = null;
+    midiListener?.stop();
+    midiListener = null;
     lane.destroy();
     engine.destroy();
     keyboard.destroy();

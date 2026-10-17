@@ -6,15 +6,18 @@
  *   (chords included), falling back to YIN monophonic pitch. Events carry source 'mic'
  *   and are already compensated by settings.micLatencyMs (override with opts.latencyMs).
  * - startPitchStream: raw per-frame pitch/level/onset stream for the tuner and settings.
- * - startMidi: all Web MIDI inputs, hot-plug aware. Null when unsupported or denied.
+ * - startMidi: all Web MIDI inputs (or the Keys iOS app's CoreMIDI bridge), hot-plug aware,
+ *   reporting connected device names. Null when unsupported or denied.
  */
 import { startMic as startMicImpl } from './mic';
-import { startMidi as startMidiImpl } from './midi';
+import { startMidi as startMidiImpl, type MidiOptions } from './midi';
+import { midiPossible } from './platform';
 import type { Listener, MicOptions } from './types';
 
 export type { Listener, MicFrameInfo, MicOptions, PitchFrame, PitchStreamOptions } from './types';
 export { startPitchStream } from './mic';
-export { listMidiInputs } from './midi';
+export { listMidiInputs, midiPermission, parseMidiMessage, type MidiMessage, type MidiOptions } from './midi';
+export { midiHelp, midiPlatform, midiPossible, type MidiHelp, type MidiPlatform } from './platform';
 export { micErrorMessage, MicError } from './source';
 
 /** Ask for the mic and start publishing noteOn events. Rejects if permission is denied. */
@@ -22,10 +25,11 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
   return startMicImpl(opts);
 }
 
-/** Connect Web MIDI inputs if the browser supports it (not iOS Safari). Null when unavailable. */
-export async function startMidi(): Promise<Listener | null> {
-  return startMidiImpl();
+/** Connect MIDI keyboards (Web MIDI, or the iOS app bridge). Null when unavailable or denied. */
+export async function startMidi(opts: MidiOptions = {}): Promise<Listener | null> {
+  return startMidiImpl(opts);
 }
 
 export const micSupported = (): boolean => !!navigator.mediaDevices?.getUserMedia;
-export const midiSupported = (): boolean => 'requestMIDIAccess' in navigator;
+/** True when a MIDI keyboard can reach the app here: Web MIDI, or inside the Keys iOS app. */
+export const midiSupported = (): boolean => midiPossible();

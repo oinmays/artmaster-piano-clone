@@ -23,13 +23,13 @@ export function save<T>(key: string, value: T): void {
 // ---- Settings ---------------------------------------------------------------
 
 export interface Settings {
-  /** Which input the player listens to. */
-  input: 'mic' | 'touch';
+  /** Which input the player listens to. A connected MIDI keyboard is used whatever this says. */
+  input: 'mic' | 'touch' | 'midi';
   /** Show note names on keys and falling notes. */
   showNoteNames: boolean;
   /** Extra latency compensation for the mic, in ms. */
   micLatencyMs: number;
-  /** Mic/MIDI: count the right note in the wrong octave as correct (beginners rarely know which octave). */
+  /** Mic only: count the right note in the wrong octave as correct (beginners rarely know which octave). */
   anyOctave: boolean;
   volume: number;
   a4: number;

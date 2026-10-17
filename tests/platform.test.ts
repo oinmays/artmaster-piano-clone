@@ -29,6 +29,7 @@ describe('midiPlatform', () => {
   it('Chrome on Mac and Android use Web MIDI', () => {
     expect(midiPlatform(p({ userAgent: UA.macChrome, platform: 'MacIntel', hasWebMidi: true }))).toBe('web-midi');
     expect(midiPlatform(p({ userAgent: UA.android, maxTouchPoints: 5, hasWebMidi: true }))).toBe('web-midi');
+    expect(midiPlatform(p({ userAgent: UA.android, platform: 'MacIntel', maxTouchPoints: 5, hasWebMidi: true }))).toBe('web-midi');
   });
   it('the iOS app bridge wins over the user agent', () => {
     const app = p({ userAgent: UA.iphone, maxTouchPoints: 5, native: { platform: 'ios', midi: true } });
