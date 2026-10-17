@@ -2,7 +2,11 @@ import type { Screen, Song } from '../core/types';
 import { SONGS, allTags } from '../songs';
 import { esc, injectStyle, songCardHtml } from '../songs/ui';
 import { MidiImportError } from '../songs/midifile';
-import { deleteMySong, importFile, mySongs, renameMySong, getMySong } from '../songs/mine';
+import { deleteMySong, getMySong, mySongs, onMySongsChange, updateMySong } from '../songs/mine';
+import { importQueue } from '../songs/importer';
+import { mountQueueView } from '../songs/queueview';
+import { ensureImportBadge } from '../songs/importbadge';
+import { myGroupsHtml } from '../songs/mycards';
 
 const css = `
 .lb-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
@@ -30,13 +34,7 @@ const css = `
 .lb-mine-help a { color: var(--beige); }
 .lb-msg { font-size: 0.875rem; margin: 0 0 0.75rem; }
 .lb-msg[data-kind='error'] { color: var(--bad); }
-.lb-mine-item { display: flex; flex-direction: column; gap: 0.5rem; }
-.lb-mine-item > .k-card { flex: 1; }
-.lb-mine-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.lb-mine-actions .btn { min-height: 44px; }
-.lb-mine-actions input { flex: 1 1 140px; min-height: 44px; padding: 0 0.75rem; border-radius: var(--radius-pill);
-  border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 16px;
-  -webkit-user-select: text; user-select: text; }
+[data-queue] { margin-bottom: 1rem; }
 .lb-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 `;
 
@@ -70,21 +68,21 @@ const screen: Screen = (root) => {
     <section class="lb-mine" aria-labelledby="lb-mine-title">
       <div class="lb-mine-head">
         <h2 id="lb-mine-title">My songs</h2>
-        <button class="btn btn--primary" type="button" data-load>Load a MIDI file</button>
-        <input class="lb-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" tabindex="-1" aria-hidden="true" data-file>
+        <button class="btn btn--primary" type="button" data-load>Load songs</button>
+        <input class="lb-file" type="file" multiple accept=".mid,.midi,.kar,audio/midi,audio/x-midi,.mp3,.m4a,.aac,.wav,.aif,.aiff,audio/*" tabindex="-1" aria-hidden="true" data-file>
       </div>
-      <p class="lb-mine-note muted">Your file stays on this device. Use songs you own.</p>
+      <p class="lb-mine-note muted">MIDI files or audio recordings (MP3, M4A, WAV). Pick several at once. They stay on this device; use songs you own.</p>
       <details class="lb-mine-help">
-        <summary>Where do I get a MIDI file?</summary>
+        <summary>Which files work best?</summary>
         <ul class="muted">
-          <li>Buy one from a sheet-music or MIDI store that sells MIDI downloads for the song.</li>
-          <li>Make one in <a href="https://musescore.org" target="_blank" rel="noopener">MuseScore</a> (free): open or write the score, then <a href="https://handbook.musescore.org/file-management/file-export" target="_blank" rel="noopener">File → Export → MIDI</a>.</li>
-          <li>From GarageBand: it only saves audio, so open the project in Logic Pro, select the regions and choose File → Export → Selection as MIDI File.</li>
-          <li>Piano arrangements with separate right- and left-hand tracks work best.</li>
+          <li><b>MIDI</b> is exact. Buy one from a sheet-music or MIDI store, or make one in <a href="https://musescore.org" target="_blank" rel="noopener">MuseScore</a> (free): <a href="https://handbook.musescore.org/file-management/file-export" target="_blank" rel="noopener">File → Export → MIDI</a>. Piano arrangements with separate right- and left-hand tracks work best; for band files, pick the parts under Tracks.</li>
+          <li><b>Audio</b> is turned into notes on this device, which takes about as long as the song. Solo piano recordings work best: search “&lt;song&gt; easy piano” for a piano cover. Full band mixes with vocals and drums give messy notes. Up to 6 minutes per song.</li>
+          <li>The first audio file downloads the note model (about 1 MB), once.</li>
         </ul>
       </details>
       <p class="lb-msg" role="status" aria-live="polite" hidden></p>
-      <div class="grid" data-mine></div>
+      <div data-queue hidden></div>
+      <div data-mine></div>
     </section>
     <p class="lb-count muted" aria-live="polite"></p>
     <div class="grid" data-grid></div>
@@ -135,51 +133,29 @@ const screen: Screen = (root) => {
     msg.textContent = text;
     msg.dataset.kind = kind;
   };
-  const fail = (err: unknown) =>
-    say(err instanceof MidiImportError ? err.message : 'Keys couldn’t read that file. Try exporting it again as a standard MIDI file.', 'error');
+  const fail = (err: unknown) => say(err instanceof MidiImportError ? err.message : 'Keys couldn’t save that change.', 'error');
 
   const renderMine = () => {
     const list = mySongs();
     mineEl.hidden = !list.length;
-    mineEl.innerHTML = list
-      .map((s) => {
-        const id = esc(s.id);
-        const actions =
-          editing === s.id
-            ? `<form class="lb-mine-actions" data-rename="${id}">
-                 <input name="title" value="${esc(s.title)}" maxlength="80" aria-label="Song title" autocomplete="off" enterkeyhint="done">
-                 <button class="btn btn--primary" type="submit">Save</button>
-                 <button class="btn btn--ghost" type="button" data-cancel>Cancel</button></form>`
-            : confirming === s.id
-              ? `<div class="lb-mine-actions"><span class="muted" style="align-self:center">Delete “${esc(s.title)}”?</span>
-                 <button class="btn" type="button" data-delete-yes="${id}">Delete</button>
-                 <button class="btn btn--ghost" type="button" data-cancel>Keep</button></div>`
-              : `<div class="lb-mine-actions">
-                 <button class="btn btn--ghost" type="button" data-edit="${id}" aria-label="Rename ${esc(s.title)}">Rename</button>
-                 <button class="btn btn--ghost" type="button" data-delete="${id}" aria-label="Delete ${esc(s.title)}">Delete</button></div>`;
-        return `<div class="lb-mine-item">${songCardHtml(s)}${actions}</div>`;
-      })
-      .join('');
-    mineEl.querySelector<HTMLInputElement>('form input')?.focus();
+    mineEl.innerHTML = myGroupsHtml(list, (id) => (editing === id ? 'edit' : confirming === id ? 'confirm' : 'view'));
+    mineEl.querySelector<HTMLInputElement>('form input[name=title]')?.focus();
   };
 
+  const queue = importQueue();
+  ensureImportBadge();
+  const stopQueueView = mountQueueView(root.querySelector<HTMLElement>('[data-queue]')!, queue);
+  const stopMine = onMySongsChange(() => {
+    if (!editing && !confirming) renderMine();
+  });
+
   loadBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
+  fileInput.addEventListener('change', () => {
+    const files = [...(fileInput.files ?? [])];
     fileInput.value = '';
-    if (!file) return;
-    loadBtn.disabled = true;
-    say('Reading your file…');
-    try {
-      const song = getMySong((await importFile(file)).songId)!;
-      say(`Added “${song.title}”: ${song.levels.hard.length} notes, ${song.bpm} BPM.`);
-      editing = confirming = '';
-      renderMine();
-    } catch (err) {
-      fail(err);
-    } finally {
-      loadBtn.disabled = false;
-    }
+    if (!files.length) return;
+    say('');
+    queue.add(files);
   });
   mineEl.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
@@ -189,9 +165,9 @@ const screen: Screen = (root) => {
       if (b.dataset.edit) [editing, confirming] = [b.dataset.edit, ''];
       else if (b.dataset.delete) [confirming, editing] = [b.dataset.delete, ''];
       else if (b.dataset.deleteYes) {
-        const title = mySongs().find((s) => s.id === b.dataset.deleteYes)?.title ?? 'Song';
-        deleteMySong(b.dataset.deleteYes);
+        const title = getMySong(b.dataset.deleteYes)?.title ?? 'Song';
         confirming = '';
+        deleteMySong(b.dataset.deleteYes);
         say(`Deleted “${title}”.`);
       } else if (b.hasAttribute('data-cancel')) editing = confirming = '';
       else return;
@@ -203,18 +179,23 @@ const screen: Screen = (root) => {
   mineEl.addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
+    const field = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | null)?.value;
+    editing = '';
     try {
-      renameMySong(form.dataset.rename!, (form.elements.namedItem('title') as HTMLInputElement).value);
+      updateMySong(form.dataset.rename!, { artist: field('artist') ?? undefined, title: field('title') ?? undefined });
       say('');
     } catch (err) {
       fail(err);
     }
-    editing = '';
     renderMine();
   });
 
   renderMine();
   render();
+  return () => {
+    stopQueueView();
+    stopMine();
+  };
 };
 
 export default screen;
