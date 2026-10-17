@@ -2,7 +2,7 @@
 import type { Screen } from '../core/types';
 import { getAudioContext, playClick, setVolume, unlockAudio } from '../core/audio';
 import { midiToName } from '../core/music';
-import { getSettings, updateSettings, type Settings } from '../core/store';
+import { DEFAULT_MIC_SENSITIVITY, getSettings, updateSettings, type Settings } from '../core/store';
 import {
   listMidiInputs,
   micErrorMessage,
@@ -14,6 +14,7 @@ import {
   type PitchFrame,
 } from '../listen';
 import { freqToNote } from '../listen/pitch';
+import { SENSITIVITY_MAX, SENSITIVITY_MIN } from '../listen/sensitivity';
 
 const css = `
 .stg { display: flex; flex-direction: column; gap: 1rem; max-width: 720px; }
@@ -36,6 +37,7 @@ const css = `
 .stg-switch[aria-checked='true'] { background: var(--good); }
 .stg-switch[aria-checked='true']::after { transform: translateX(20px); }
 .stg-range { flex: 1 1 12rem; min-height: 44px; accent-color: var(--accent); }
+.stg-sens-reset { min-height: 44px; }
 .stg-val { min-width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 .stg-step { width: 44px; height: 44px; padding: 0; font-size: 1.25rem; }
 .stg-meter { height: 12px; border-radius: var(--radius-pill); background: var(--surface-3); overflow: hidden; }
@@ -108,6 +110,15 @@ const screen: Screen = (root) => {
       <div class="stg-row">
         <span class="stg-label" id="stg-oct-l">Accept any octave<span class="stg-sub">Microphone: count the right note even if it's played higher or lower than shown. A MIDI keyboard always needs the exact key.</span></span>
         <button class="stg-switch" role="switch" aria-labelledby="stg-oct-l" data-act="octave"></button>
+      </div>
+      <div class="stg-row">
+        <label for="stg-sens">Mic sensitivity<span class="stg-sub" id="stg-sens-sub">Higher counts quieter notes. Lower ignores more background noise.</span></label>
+        <input id="stg-sens" class="stg-range" type="range" min="${SENSITIVITY_MIN}" max="${SENSITIVITY_MAX}" step="1" aria-describedby="stg-sens-sub">
+        <span class="stg-val stg-sens-val"></span>
+      </div>
+      <div class="stg-row">
+        <span class="stg-label"><span class="stg-sub">Play your softest normal note in Mic check: it should cross the yellow line, silence shouldn't.</span></span>
+        <button class="btn btn--sm stg-sens-reset" data-act="sens-reset">Reset to default</button>
       </div>
       <div class="stg-row">
         <span class="stg-label">Mic check<span class="stg-sub">See the level and the note the microphone hears.</span></span>
@@ -248,6 +259,28 @@ const screen: Screen = (root) => {
   $('[data-act=a4-up]').addEventListener('click', () => stepA4(1));
   renderA4();
 
+  // ---- Mic sensitivity slider (a running mic picks the change up live) -----------
+  const sens = $<HTMLInputElement>('#stg-sens');
+  const sensVal = $('.stg-sens-val');
+  const sensReset = $<HTMLButtonElement>('[data-act=sens-reset]');
+  const renderSens = () => {
+    const v = s.micSensitivity;
+    const isDefault = v === DEFAULT_MIC_SENSITIVITY;
+    sens.value = String(v);
+    sensVal.textContent = isDefault ? `${v} (default)` : String(v);
+    sens.setAttribute('aria-valuetext', `${v}${isDefault ? ', default' : ''}`);
+    sensReset.disabled = isDefault;
+  };
+  sens.addEventListener('input', () => {
+    set({ micSensitivity: Math.max(SENSITIVITY_MIN, Math.min(SENSITIVITY_MAX, Math.round(Number(sens.value)))) });
+    renderSens();
+  });
+  sensReset.addEventListener('click', () => {
+    set({ micSensitivity: DEFAULT_MIC_SENSITIVITY });
+    renderSens();
+  });
+  renderSens();
+
   // ---- Latency slider ------------------------------------------------------------
   const lat = $<HTMLInputElement>('#stg-lat');
   const latVal = $('.stg-lat-val');
@@ -290,7 +323,7 @@ const screen: Screen = (root) => {
     const db = 20 * Math.log10(Math.max(p.rms, 1e-6));
     const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
     fill.style.width = `${pct}%`;
-    fill.classList.toggle('is-low', p.rms < p.floor * 2.5);
+    fill.classList.toggle('is-low', p.rms < p.gate);
   };
 
   const stopTest = () => {
@@ -319,7 +352,7 @@ const screen: Screen = (root) => {
           lastNoteAt = p.time;
         } else if (p.time - lastNoteAt > 1000) {
           liveNote.textContent = '–';
-          liveInfo.textContent = p.rms < p.floor * 2.5 ? 'Listening…' : 'Hearing sound, no clear note';
+          liveInfo.textContent = p.rms < p.gate ? 'Listening…' : 'Hearing sound, no clear note';
         }
       });
       if (!root.isConnected) return l.stop();

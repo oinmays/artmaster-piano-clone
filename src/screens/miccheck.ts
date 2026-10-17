@@ -9,7 +9,7 @@ import type { Screen } from '../core/types';
 import { createKeyboard } from '../core/keyboard';
 import { onNoteOff, onNoteOn } from '../core/input';
 import { unlockAudio } from '../core/audio';
-import { getSettings } from '../core/store';
+import { DEFAULT_MIC_SENSITIVITY, getSettings, updateSettings } from '../core/store';
 import { midiToName } from '../core/music';
 import {
   micErrorMessage,
@@ -22,6 +22,7 @@ import {
   type MicFrameInfo,
 } from '../listen';
 import { freqToNote } from '../listen/pitch';
+import { SENSITIVITY_MAX, SENSITIVITY_MIN } from '../listen/sensitivity';
 
 const CSS = `
 .mc-meter { position: relative; height: 22px; border-radius: 11px; background: var(--surface-3); overflow: hidden; }
@@ -29,6 +30,12 @@ const CSS = `
 .mc-meter.is-loud i { background: var(--good); }
 .mc-meter b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--warn); }
 .mc-legend { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; }
+.mc-sens { display: grid; grid-template-columns: 1fr auto auto; align-items: center; column-gap: 0.75rem; margin-top: 0.875rem; }
+.mc-sens label { font-weight: 600; }
+.mc-sens input { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 44px; margin: 0; accent-color: var(--accent); }
+.mc-sens output { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.mc-sens .btn { min-height: 44px; }
+.mc-sens-hint { font-size: 0.8125rem; color: var(--text-muted); margin: 0.25rem 0 0; }
 .mc-status { font-weight: 600; margin: 0.75rem 0 0; }
 .mc-status[data-s='ok'] { color: var(--good); }
 .mc-status[data-s='quiet'] { color: var(--warn); }
@@ -79,6 +86,14 @@ const screen: Screen = (root) => {
         <p class="eyebrow">Sound level</p>
         <div class="mc-meter" aria-hidden="true"><i></i><b style="left:0"></b></div>
         <div class="mc-legend"><span>Silence</span><span>Yellow line = loud enough to count</span><span>Loud</span></div>
+        <div class="mc-sens">
+          <label for="mc-sens">Sensitivity</label>
+          <output class="mc-sens-val" for="mc-sens"></output>
+          <button type="button" class="btn btn--ghost btn--sm" data-act="sens-reset">Reset</button>
+          <input id="mc-sens" type="range" min="${SENSITIVITY_MIN}" max="${SENSITIVITY_MAX}" step="1"
+            aria-describedby="mc-sens-hint">
+        </div>
+        <p class="mc-sens-hint" id="mc-sens-hint">Play your softest normal note. Slide until it crosses the yellow line, but silence doesn't.</p>
       </div>
 
       <div class="card">
@@ -129,6 +144,25 @@ const screen: Screen = (root) => {
   const detailEl = $('.mc-detail');
   const heardEl = $('.mc-heard');
   const countEl = $('.mc-count');
+
+  // ---- Sensitivity slider: saves live; the running mic picks it up and `gate` moves next frame.
+  const sens = $<HTMLInputElement>('#mc-sens');
+  const sensVal = $('.mc-sens-val');
+  const sensReset = $<HTMLButtonElement>('[data-act=sens-reset]');
+  const renderSens = (v: number) => {
+    const isDefault = v === DEFAULT_MIC_SENSITIVITY;
+    sens.value = String(v);
+    sensVal.textContent = isDefault ? `${v} (default)` : String(v);
+    sens.setAttribute('aria-valuetext', `${v}${isDefault ? ', default' : ''}`);
+    sensReset.style.display = isDefault ? 'none' : '';
+  };
+  const setSens = (v: number) => {
+    const n = Math.max(SENSITIVITY_MIN, Math.min(SENSITIVITY_MAX, Math.round(v)));
+    renderSens(updateSettings({ micSensitivity: n }).micSensitivity);
+  };
+  sens.addEventListener('input', () => setSens(Number(sens.value)));
+  sensReset.addEventListener('click', () => setSens(DEFAULT_MIC_SENSITIVITY));
+  renderSens(getSettings().micSensitivity);
 
   const keyboard = createKeyboard($('.mc-kb'), { from: 36, to: 96, sound: false, emit: false, showNames: true, namesOnlyC: true });
 
