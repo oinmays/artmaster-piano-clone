@@ -30,7 +30,7 @@ Milestone **MVP 1.2 Real piano input**. First real-keyboard test (iPad on the mu
 
 | # | Ticket | Owner | Files | Status |
 |---|---|---|---|---|
-| T11 | Mic check screen, live mic level + heard note in the player, "Accept any octave" (#12) | v1 | `src/screens/miccheck.ts`, `src/player/octave.ts`, `src/listen/**`, player, settings | in progress |
+| T11 | Mic check screen, live mic level + heard note in the player, "Accept any octave" (#12) | v1 | `src/screens/miccheck.ts`, `src/player/octave.ts`, `src/listen/**`, player, settings | done (53e6b38), awaiting real-piano check |
 | T12+ | USB MIDI keyboard input (planned in chat v3) | v3 | — | todo |
 
 ## Definition of done (every ticket)
