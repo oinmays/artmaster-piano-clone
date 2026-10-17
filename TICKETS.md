@@ -43,6 +43,16 @@ Sequence: T12 + T13 ship first (keyboard works in Chrome/Edge on Mac/PC/Android,
 
 T16 + T17 follow the first iPad test, where the mic heard the right notes only when the keyboard was very loud. They run in parallel on separate files against the agreed `micSensitivity` setting.
 
+T18 widens the top of the range (`src/listen/sensitivity.ts`). The bottom half and the default are unchanged; above 50 the factor falls faster, with the floor-relative gate clamped at 1.2× and the chord SNR at 3:
+
+| Slider | Factor before → after | Gate × floor before → after | minRms before → after | Chord minSnr before → after |
+|---|---|---|---|---|
+| 0 | 1.125 → 1.125 | 2.81 → 2.81 | 0.00090 → 0.00090 | 5.30 → 5.30 |
+| 15 | 1.00 → 1.00 | 2.49 → 2.49 | 0.00080 → 0.00080 | 4.99 → 4.99 |
+| 50 (default) | 0.75 → 0.75 | 1.875 → 1.875 | 0.00060 → 0.00060 | 4.33 → 4.33 |
+| 75 | 0.61 → 0.47 | 1.53 → 1.20 | 0.00049 → 0.00038 | 3.91 → 3.44 |
+| 100 | 0.50 → 0.30 | 1.25 → 1.20 | 0.00040 → 0.00024 | 3.54 → 3.00 |
+
 ## MVP 1.3 Fingers, songs, versions
 
 Milestone **MVP 1.3 Fingers, songs, versions**. Requested after the first sensitivity build. Commercial songs (21 Questions, Many Men, Lush Life, Dancing in the Dark, Nose on the Grindstone, Lonely, Love Yourself, Baby) can't ship in this public repo, so T21 lets a learner load their own MIDI file, kept on the device only.

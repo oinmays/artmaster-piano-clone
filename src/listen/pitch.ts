@@ -12,7 +12,7 @@
  *
  * Everything is sample-rate agnostic and safe to unit test in Node.
  */
-import { BASE_GATE, BASE_MIN_RMS, BASE_MIN_SNR, DEFAULT_SENSITIVITY_FACTOR } from './sensitivity';
+import { BASE_GATE, BASE_MIN_RMS, BASE_MIN_SNR, DEFAULT_SENSITIVITY_FACTOR, gateRatio } from './sensitivity';
 
 // ---------------------------------------------------------------------------
 // FFT
@@ -438,8 +438,9 @@ export interface OnsetOptions {
   /** Absolute RMS gate at sensitivity factor 1. Default 0.0008. */
   minRms?: number;
   /**
-   * Sensitivity factor (sensitivityFactor() in ./sensitivity). Scales `gate` and `minRms` only.
-   * Default 0.75 (settings default 50). 1.0 reproduces the pre-T16 thresholds.
+   * Sensitivity factor (sensitivityFactor() in ./sensitivity). Scales `gate` (never below
+   * 1.2× floor) and `minRms` only. Default 0.75 (settings default 50), 0.3 at maximum.
+   * 1.0 reproduces the pre-T16 thresholds.
    *
    * Not scaled, on purpose: `energyRise`, `k`, `delta` (flux) are ratios/relative measures of
    * change, not loudness, so a quiet note produces the same relative jump as a loud one;
@@ -499,10 +500,13 @@ export class OnsetDetector {
     if (Number.isFinite(factor) && factor > 0) this.o.sensitivity = factor;
   }
 
-  /** The RMS the signal must reach to count as playing: max(floor · gate · f, minRms · f). */
+  /**
+   * The RMS the signal must reach to count as playing: max(floor · max(gate · f, 1.2), minRms · f).
+   * The floor multiple is clamped (gateRatio) so maximum sensitivity never sits on the floor.
+   */
   gateLevel(): number {
     const f = this.o.sensitivity;
-    return Math.max(this.floor.floor * this.o.gate * f, this.o.minRms * f);
+    return Math.max(this.floor.floor * gateRatio(f, this.o.gate), this.o.minRms * f);
   }
 
   /** Whether the current frame is above the noise gate. */

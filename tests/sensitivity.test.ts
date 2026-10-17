@@ -18,6 +18,10 @@ import {
   BASE_MIN_RMS,
   DEFAULT_SENSITIVITY_FACTOR,
   gateFromFloor,
+  gateRatio,
+  MAX_SENSITIVITY_FACTOR,
+  MIN_GATE_RATIO,
+  MIN_SNR,
   minSnrFor,
   sensitivityFactor,
   SENSITIVITY_DEFAULT,
@@ -81,7 +85,13 @@ describe('sensitivityFactor', () => {
     expect(sensitivityFactor(SENSITIVITY_DEFAULT)).toBe(0.75);
     expect(sensitivityFactor(DEFAULT_MIC_SENSITIVITY)).toBe(DEFAULT_SENSITIVITY_FACTOR);
     expect(sensitivityFactor(DEFAULT_SETTINGS.micSensitivity)).toBe(0.75);
-    expect(sensitivityFactor(SENSITIVITY_MAX)).toBeCloseTo(0.5, 12);
+    expect(sensitivityFactor(SENSITIVITY_MAX)).toBeCloseTo(0.3, 12);
+    expect(MAX_SENSITIVITY_FACTOR).toBe(0.3);
+  });
+
+  it('leaves the bottom half exactly as T16 shipped it', () => {
+    for (const s of [0, 10, 25, 40, 50]) expect(sensitivityFactor(s)).toBeCloseTo(0.75 * (2 / 3) ** ((s - 50) / 50), 12);
+    expect(sensitivityFactor(75)).toBeCloseTo(0.75 * Math.sqrt(0.4), 12);
   });
 
   it('reproduces the pre-T16 thresholds near 15', () => {
@@ -95,11 +105,24 @@ describe('sensitivityFactor', () => {
     expect(sensitivityFactor(NaN)).toBe(0.75);
   });
 
-  it('keeps the gate at least 1.25x the floor at maximum, and scales SNR by sqrt', () => {
-    expect(BASE_GATE * sensitivityFactor(100)).toBeGreaterThanOrEqual(1.25 - 1e-9);
+  it('clamps the gate at 1.2x the floor and the SNR at 3, scaling SNR by sqrt above that', () => {
+    expect(MIN_GATE_RATIO).toBe(1.2);
+    expect(MIN_SNR).toBe(3);
+    for (let s = 0; s <= 100; s++) {
+      expect(gateRatio(sensitivityFactor(s))).toBeGreaterThanOrEqual(1.2);
+      expect(minSnrFor(sensitivityFactor(s))).toBeGreaterThanOrEqual(3);
+    }
+    expect(gateRatio(1)).toBe(BASE_GATE);
+    expect(gateRatio(0.75)).toBeCloseTo(1.875, 12);
+    expect(gateRatio(0.5)).toBeCloseTo(1.25, 12);
+    expect(gateRatio(sensitivityFactor(100))).toBe(1.2);
     expect(minSnrFor(1)).toBe(5);
     expect(minSnrFor(0.75)).toBeCloseTo(4.33, 2);
     expect(minSnrFor(0.5)).toBeCloseTo(3.54, 2);
+    expect(minSnrFor(sensitivityFactor(100))).toBe(3);
+    // minRms keeps falling with f: 0.0008 → 0.00024 at maximum.
+    expect(gateFromFloor(0, sensitivityFactor(100))).toBeCloseTo(0.00024, 12);
+    expect(gateFromFloor(0.001, sensitivityFactor(100))).toBeCloseTo(0.0012, 12);
   });
 });
 
@@ -126,6 +149,27 @@ describe('OnsetDetector sensitivity', () => {
     expect(old.onsets).toHaveLength(0);
     expect(now.onsets).toHaveLength(1);
     expect(Math.abs(now.onsets[0] - 2000)).toBeLessThan(40);
+  });
+
+  it('hears a quiet note in a quiet room at the new maximum that the T16 maximum (0.5) missed', () => {
+    const sig = new Float32Array(SR * 3);
+    const start = SR * 2;
+    pianoTone(midiFreq(60), SR, 0.00035).forEach((v, i) => (sig[start + i] += v));
+    addNoise(sig, 0.0001);
+    const old = runOnsets(sig, 0.5);
+    const now = runOnsets(sig, sensitivityFactor(SENSITIVITY_MAX));
+    expect(old.onsets).toHaveLength(0);
+    expect(now.onsets).toHaveLength(1);
+    expect(Math.abs(now.onsets[0] - 2000)).toBeLessThan(40);
+  });
+
+  it('the clamped gate also holds in a mid-level room: max sensitivity opens on a note, not on the hiss', () => {
+    const sig = new Float32Array(SR * 3);
+    const start = SR * 2;
+    pianoTone(midiFreq(64), SR, 0.003).forEach((v, i) => (sig[start + i] += v));
+    addNoise(sig, 0.002, 13);
+    const r = runOnsets(sig, sensitivityFactor(SENSITIVITY_MAX), 1500);
+    expect(r.onsets.filter((t) => t > 1500)).toHaveLength(1);
   });
 
   describe('at maximum sensitivity, steady noise never counts as a note', () => {
@@ -175,8 +219,20 @@ describe('confirmNotes minSnr', () => {
     expect(confirmNotes(mag, SR, N, [60], { minSnr: minSnrFor(0.75) })[0].present).toBe(true);
   });
 
+  it('a weaker note still passes at the new maximum (3) but not at the T16 maximum (3.54)', () => {
+    let gained = 0;
+    for (const amp of [0.03, 0.032, 0.034, 0.036, 0.038]) {
+      const mag = magnitudeSpectrum(addNoise(pianoTone(midiFreq(60), N, amp, { offset: 2000 }), 0.25));
+      const old = confirmNotes(mag, SR, N, [60], { minSnr: minSnrFor(0.5) })[0].present;
+      const now = confirmNotes(mag, SR, N, [60], { minSnr: minSnrFor(sensitivityFactor(100)) })[0].present;
+      if (old) expect(now).toBe(true);
+      if (now && !old) gained++;
+    }
+    expect(gained).toBeGreaterThan(0);
+  });
+
   it('still finds nothing in noise at the maximum-sensitivity minSnr', () => {
-    for (const seed of [1, 2, 3, 4, 5]) {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
       const mag = magnitudeSpectrum(addNoise(new Float32Array(N), 0.1, seed));
       const res = confirmNotes(mag, SR, N, [48, 60, 64, 67, 72], { minSnr: minSnrFor(sensitivityFactor(100)) });
       expect(res.filter((r) => r.present)).toEqual([]);
@@ -208,7 +264,7 @@ describe('live sensitivity updates', () => {
     expect(f0.gate / f0.floor).toBeCloseTo(BASE_GATE * 0.75, 6);
     updateSettings({ micSensitivity: 100 });
     pump(1);
-    expect(last!.gate / last!.floor).toBeCloseTo(BASE_GATE * 0.5, 6);
+    expect(last!.gate / last!.floor).toBeCloseTo(MIN_GATE_RATIO, 6);
     l.stop();
     // After stop the listener is unsubscribed: a new session starts from the saved value only.
     updateSettings({ micSensitivity: 0 });
@@ -229,7 +285,7 @@ describe('live sensitivity updates', () => {
     pump();
     updateSettings({ micSensitivity: 0 });
     pump(1);
-    expect(last!.gate / last!.floor).toBeCloseTo(BASE_GATE * 0.5, 6);
+    expect(last!.gate / last!.floor).toBeCloseTo(MIN_GATE_RATIO, 6);
     pinned.stop();
   });
 });

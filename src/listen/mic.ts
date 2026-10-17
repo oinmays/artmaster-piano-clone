@@ -10,8 +10,8 @@
  *  3. Active notes get a noteOff when their partials vanish or the signal drops under the gate.
  *
  * Sensitivity (settings.micSensitivity → sensitivityFactor f) scales the loudness thresholds:
- * the RMS gate and absolute minimum (×f, inside OnsetDetector) and the chord-confirmation SNR
- * (×√f, minSnrFor). YIN clarity (0.85), flux k/delta, energy rise and the baseline rise ratio
+ * the RMS gate and absolute minimum (×f, inside OnsetDetector; the gate never below 1.2× floor)
+ * and the chord-confirmation SNR (×√f, never below 3, minSnrFor). YIN clarity (0.85), flux k/delta, energy rise and the baseline rise ratio
  * are left alone: they measure signal quality or relative change, not loudness. The setting
  * is followed live through onSettingsChange; no restart needed.
  */
