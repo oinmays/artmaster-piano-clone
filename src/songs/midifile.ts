@@ -9,6 +9,7 @@
  */
 import type { Hand, NoteEvent, Song } from '../core/types';
 import { combine, sortNotes } from './notation';
+import { gmShortName, isKeys } from './gm';
 
 /** A friendly error: its message is shown to the learner as is. */
 export class MidiImportError extends Error {}
@@ -65,6 +66,8 @@ export interface TrackInfo {
   notes: number;
   low: number;
   high: number;
+  /** Mean pitch of the part's notes (listTracks always sets it; autoRoles falls back to the low–high midpoint). */
+  avg?: number;
 }
 
 /** Parse the bytes of a .mid file. Throws MidiImportError on anything it can't read. */
@@ -90,6 +93,11 @@ export function parseMidi(bytes: Uint8Array): MidiFile {
   let sigAt = Infinity;
   let keyAt = Infinity;
   let pos = 8 + headLen;
+  // Program changes, in file order: assigned to notes by channel and time once every track is read.
+  const programs: { tick: number; ch: number; program: number }[] = [];
+  const copyright: string[] = [];
+  const texts: string[] = [];
+  const latin1 = (d: Uint8Array) => new TextDecoder('latin1').decode(d).trim();
 
   for (let t = 0; t < nTracks && pos + 8 <= bytes.length; t++) {
     const id = str(pos);
@@ -143,7 +151,11 @@ export function parseMidi(bytes: Uint8Array): MidiFile {
         const d = bytes.subarray(pos, pos + n);
         pos += n;
         if (type === 0x2f) break;
-        if (type === 0x03 && !out.trackNames[t]) out.trackNames[t] = new TextDecoder('latin1').decode(d).trim();
+        if (type === 0x03 && !out.trackNames[t]) out.trackNames[t] = latin1(d);
+        if (type === 0x01 || type === 0x02) {
+          const text = latin1(d);
+          if (text) (type === 0x02 ? copyright : texts).push(text);
+        }
         if (type === 0x51 && n >= 3 && tick < tempoAt) {
           tempoAt = tick;
           out.tempo = (d[0] << 16) | (d[1] << 8) | d[2];
@@ -175,7 +187,9 @@ export function parseMidi(bytes: Uint8Array): MidiFile {
       const d2 = size === 2 ? bytes[pos + 1] : 0;
       pos += size;
 
-      if (kind === 0x90 && d2 > 0) {
+      if (kind === 0xc0) {
+        programs.push({ tick, ch, program: d1 & 0x7f });
+      } else if (kind === 0x90 && d2 > 0) {
         const k = ch * 128 + d1;
         if (!open.has(k)) open.set(k, []);
         open.get(k)!.push({ start: tick, velocity: d2 });
@@ -189,6 +203,28 @@ export function parseMidi(bytes: Uint8Array): MidiFile {
   }
 
   if (!out.tempo) out.tempo = 500000;
+  // The program a note plays with is the last change on its channel at or before its start (in any track).
+  if (programs.length) {
+    const byCh = new Map<number, typeof programs>();
+    for (const p of programs.sort((a, b) => a.tick - b.tick)) {
+      if (!byCh.has(p.ch)) byCh.set(p.ch, []);
+      byCh.get(p.ch)!.push(p);
+    }
+    for (const n of out.notes) {
+      const list = byCh.get(n.channel);
+      if (!list) continue;
+      let program: number | undefined;
+      for (const p of list) {
+        if (p.tick > n.start) break;
+        program = p.program;
+      }
+      if (program !== undefined) n.program = program;
+    }
+  }
+  // Format 0 has one track; format 1 keeps the song's name on the first (tempo) track.
+  if (out.trackNames[0]) out.sequenceName = out.trackNames[0];
+  out.copyright = copyright;
+  out.texts = texts;
   return out;
 }
 
@@ -237,18 +273,40 @@ function line(notes: NoteEvent[], hand: Hand): NoteEvent[] {
   });
 }
 
-/** Group key used to split hands: track in multi-track files, channel otherwise. */
-function groupsOf(notes: RawNote[], format: number): Map<number, RawNote[]> {
-  const tracks = new Set(notes.map((n) => n.track));
-  const byTrack = format === 1 && tracks.size > 1;
+/**
+ * The parts of a file, keyed like TrackInfo.key: by track in multi-track format 1 files, by channel
+ * otherwise. Whether a file is "multi-track" is decided from its pitched notes only, so a format 1
+ * file with one piano track and one drum track still splits by channel. Drum notes are included.
+ */
+export function partsOf(midi: MidiFile): Map<number, RawNote[]> {
+  const byTrack = splitsByTrack(midi);
   const g = new Map<number, RawNote[]>();
-  for (const n of notes) {
+  for (const n of midi.notes) {
     const k = byTrack ? n.track : n.channel;
     if (!g.has(k)) g.set(k, []);
     g.get(k)!.push(n);
   }
-  return g;
+  return new Map([...g].sort((a, b) => a[0] - b[0]));
 }
+
+function splitsByTrack(midi: MidiFile): boolean {
+  const pitched = midi.notes.filter((n) => n.channel !== 9);
+  return midi.format === 1 && new Set((pitched.length ? pitched : midi.notes).map((n) => n.track)).size > 1;
+}
+
+const KEYS_NAME = /\b(piano|pno|keys|keyboard|klavier|r\.?h\.?|l\.?h\.?|right|left|treble|bass\s*clef)\b/i;
+const HAND_IN_NAME = /\b(r\.?h\.?|l\.?h\.?|right|left)\b/i;
+/** Names that say nothing about the part: "Track 3", "Channel 1", "Untitled", "Instrument 2"… */
+const JUNK_NAME = /^(track|tr|channel|ch|part|staff|instrument|inst|untitled|midi|new track|sequence)?\s*#?\s*\d*$/i;
+
+function cleanName(name: string): string {
+  const n = name.replace(/\s+/g, ' ').trim();
+  if (JUNK_NAME.test(n) || !/\p{L}/u.test(n)) return '';
+  return n.length > 28 ? `${n.slice(0, 27).trim()}…` : n;
+}
+
+const avgOf = (t: TrackInfo) => t.avg ?? (t.low + t.high) / 2;
+const isKeysPart = (t: TrackInfo) => (t.program !== null && isKeys(t.program)) || KEYS_NAME.test(t.name);
 
 export interface ConvertOptions {
   id: string;
@@ -259,14 +317,81 @@ export interface ConvertOptions {
   roles?: TrackRoles;
 }
 
-/** The playable parts of a file, drums included (flagged), in key order. (T26 — stub) */
-export function listTracks(_midi: MidiFile): TrackInfo[] {
-  throw new Error('T26: listTracks not built yet');
+/**
+ * The playable parts of a file, drums included (flagged), in key order. (T26)
+ * Labels are the cleaned track name when it means something, else the GM short name ("Piano",
+ * "Bass", "Strings"…), "Drums", or "Part" when neither is known; repeats get " 2", " 3". The label
+ * then carries autoRoles' pick as " (RH)" / " (LH)" (unless the name already says which hand), so it
+ * describes the automatic choice, not one the learner saved.
+ */
+export function listTracks(midi: MidiFile): TrackInfo[] {
+  const parts = partsOf(midi);
+  const byTrack = splitsByTrack(midi);
+  const tracks: TrackInfo[] = [];
+  for (const [key, notes] of parts) {
+    const chCount = new Map<number, number>();
+    for (const n of notes) chCount.set(n.channel, (chCount.get(n.channel) ?? 0) + 1);
+    const channel = [...chCount].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+    const first = [...notes].sort((a, b) => a.start - b.start).find((n) => n.program !== undefined);
+    const pitches = notes.map((n) => n.midi);
+    tracks.push({
+      key,
+      name: byTrack ? (midi.trackNames[key] ?? '') : '',
+      label: '',
+      program: first?.program ?? null,
+      channel,
+      drums: channel === 9,
+      notes: notes.length,
+      low: pitches.reduce((a, b) => Math.min(a, b)),
+      high: pitches.reduce((a, b) => Math.max(a, b)),
+      avg: pitches.reduce((s, m) => s + m, 0) / pitches.length,
+    });
+  }
+
+  // Base labels, de-duplicated.
+  const seen = new Map<string, number>();
+  for (const t of tracks) {
+    const base = t.drums ? 'Drums' : cleanName(t.name) || (t.program !== null ? gmShortName(t.program) : 'Part');
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    t.label = n > 1 ? `${base} ${n}` : base;
+  }
+  const roles = autoRoles(tracks);
+  for (const t of tracks) {
+    const role = roles[String(t.key)];
+    if ((role === 'R' || role === 'L') && !HAND_IN_NAME.test(t.label)) t.label += role === 'R' ? ' (RH)' : ' (LH)';
+  }
+  return tracks;
 }
 
-/** Pick hands automatically: piano/keys tracks first, drums off. (T26 — stub) */
-export function autoRoles(_tracks: TrackInfo[]): TrackRoles {
-  throw new Error('T26: autoRoles not built yet');
+/**
+ * Pick hands automatically. (T26) Drums are always off; a single part is split at middle C.
+ * Otherwise keys parts (a piano or organ program, or a piano/hand-like name) win:
+ *  - two or more: a part named for the right/left hand takes that hand, else the higher one is
+ *    the right hand and the lower one the left; any others are off;
+ *  - exactly one: it is split at middle C and everything else is off;
+ *  - none: the old behaviour — the right hand is a melody/lead/vocal-named part or the highest
+ *    one, the left hand a left/bass-named part or the lowest one, the rest off.
+ */
+export function autoRoles(tracks: TrackInfo[]): TrackRoles {
+  const roles: TrackRoles = {};
+  for (const t of tracks) roles[String(t.key)] = 'off';
+  const parts = tracks.filter((t) => !t.drums && t.notes > 0);
+  if (parts.length === 1) roles[String(parts[0].key)] = 'split';
+  if (parts.length <= 1) return roles;
+
+  const keys = parts.filter(isKeysPart);
+  if (keys.length === 1) {
+    roles[String(keys[0].key)] = 'split';
+    return roles;
+  }
+  const pool = keys.length ? keys : parts;
+  const byPitch = [...pool].sort((a, b) => avgOf(b) - avgOf(a));
+  const right = pool.find((t) => RIGHT_NAME.test(t.name)) ?? byPitch[0];
+  const left = pool.find((t) => t !== right && LEFT_NAME.test(t.name)) ?? byPitch.filter((t) => t !== right).at(-1)!;
+  roles[String(right.key)] = 'R';
+  roles[String(left.key)] = 'L';
+  return roles;
 }
 
 /** Turn a parsed MIDI file into a Song with easy, medium and hard levels. */
@@ -275,22 +400,15 @@ export function midiToSong(midi: MidiFile, opts: ConvertOptions): Song {
   const pitched = midi.notes.filter((n) => n.channel !== 9);
   if (!pitched.length) throw new MidiImportError('This MIDI file has no piano notes in it (only drums, or nothing at all).');
 
-  // Decide which notes belong to each hand.
-  const groups = [...groupsOf(pitched, midi.format).entries()].map(([key, notes]) => {
-    const name = midi.format === 1 && new Set(pitched.map((n) => n.track)).size > 1 ? (midi.trackNames[key] ?? '') : '';
-    return { name, notes, avg: notes.reduce((s, n) => s + n.midi, 0) / notes.length };
-  });
-  let hand: (n: RawNote) => Hand | null;
-  if (groups.length === 1) {
-    // One part: split at middle C.
-    hand = (n) => (n.midi >= 60 ? 'R' : 'L');
-  } else {
-    const named = (re: RegExp) => groups.find((g) => re.test(g.name));
-    const byPitch = [...groups].sort((a, b) => b.avg - a.avg);
-    const right = named(RIGHT_NAME) ?? byPitch[0];
-    const left = named(LEFT_NAME) ?? byPitch.filter((g) => g !== right).at(-1)!;
-    hand = (n) => (right.notes.includes(n) ? 'R' : left.notes.includes(n) ? 'L' : null);
-  }
+  // Decide which notes belong to each hand from the part roles ('split' = middle C and up is the right hand).
+  const roles = opts.roles ?? autoRoles(listTracks(midi));
+  const roleOf = new Map<RawNote, TrackRole>();
+  for (const [key, list] of partsOf(midi)) for (const n of list) roleOf.set(n, roles[String(key)] ?? 'off');
+  const hand = (n: RawNote): Hand | null => {
+    const role = roleOf.get(n);
+    return role === 'R' || role === 'L' ? role : role === 'split' ? (n.midi >= 60 ? 'R' : 'L') : null;
+  };
+  if (!pitched.some(hand)) throw new MidiImportError('Pick at least one track for a hand.');
 
   let notes: NoteEvent[] = [];
   for (const n of pitched) {
@@ -334,7 +452,7 @@ export function midiToSong(midi: MidiFile, opts: ConvertOptions): Song {
   return {
     id: opts.id,
     title: opts.title,
-    composer: 'Imported MIDI',
+    composer: opts.composer ?? 'Imported MIDI',
     blurb: `My song · ${hard.length} notes`,
     bpm,
     beatsPerBar,

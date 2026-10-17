@@ -3,6 +3,7 @@ import { bestStars, load, save } from '../core/store';
 import { getAudioContext, playNote, unlockAudio, type Voice } from '../core/audio';
 import { navigate } from '../core/router';
 import { barCount, getSong, lengthBeats, notesInBars } from '../songs';
+import { getMySong } from '../songs/mine';
 import { LEVELS, LEVEL_LABEL, clock, esc, injectStyle, starsHtml } from '../songs/ui';
 
 /** Options remembered per song. */
@@ -26,6 +27,7 @@ const css = `
 .sg-layout { display: grid; gap: 1rem; grid-template-columns: 1fr; align-items: start; }
 @media (min-width: 900px) { .sg-layout { grid-template-columns: 1fr 1.15fr; } .sg-head { position: sticky; top: 1rem; } }
 .sg-head h1 { color: var(--beige); margin-bottom: 0.25rem; }
+.sg-head .sg-tracks { min-height: 44px; }
 .sg-head .sg-composer { font-size: 1.0625rem; margin-bottom: 0.25rem; }
 .sg-head .row { margin: 0.75rem 0; }
 .sg-head .sg-actions { margin-top: 1.25rem; display: grid; grid-template-columns: 1fr 1.6fr; gap: 0.625rem; }
@@ -104,6 +106,7 @@ const screen: Screen = (root, params) => {
         <div class="row">
           <span class="chip">${esc(song.key)}</span><span class="chip">${meter}</span><span class="chip">${song.bpm} BPM</span>
           ${song.tags.map((t) => `<span class="chip">${esc(t)}</span>`).join('')}
+          ${getMySong(song.id)?.multiTrack ? `<a class="btn btn--ghost btn--sm sg-tracks" href="#/tracks/${encodeURIComponent(song.id)}">Tracks</a>` : ''}
         </div>
         <p class="muted" data-summary></p>
         <div class="sg-actions">

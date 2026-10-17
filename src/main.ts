@@ -12,6 +12,7 @@ import { setVolume, unlockAudio } from './core/audio';
 route('/', () => import('./screens/home').then((m) => m.default));
 route('/library', () => import('./screens/library').then((m) => m.default));
 route('/song/:id', () => import('./screens/song').then((m) => m.default));
+route('/tracks/:id', () => import('./screens/tracks').then((m) => m.default));
 route('/play/:id', () => import('./screens/player').then((m) => m.default), true);
 route('/results', () => import('./screens/results').then((m) => m.default));
 route('/progress', () => import('./screens/progress').then((m) => m.default));
