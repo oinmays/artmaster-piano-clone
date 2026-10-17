@@ -92,8 +92,7 @@ const screen: Screen = (root, params) => {
 
   const o = loadOptions(song);
   const persist = () => save(`songOpts.${song.id}`, o);
-  const eighthBeats = song.id === 'fur-elise'; // written in eighth-note beats (3/8)
-  const meter = eighthBeats ? '3/8' : `${song.beatsPerBar}/4`;
+  const meter = song.meter ?? `${song.beatsPerBar}/4`;
 
   root.innerHTML = `<section class="screen sg">
     <a class="sg-back" href="#/library">‹ Songs</a>

@@ -20,6 +20,8 @@ export interface Song {
   blurb: string;
   bpm: number;
   beatsPerBar: number;
+  /** Time signature shown to the player, e.g. "6/8". Defaults to `${beatsPerBar}/4`. */
+  meter?: string;
   /** e.g. "C major". */
   key: string;
   tags: string[];

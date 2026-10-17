@@ -1,4 +1,4 @@
-# Ticket board: MVP 1
+# Ticket board
 
 The live board is GitHub Issues on this repo, milestone **MVP 1**, with labels
 `status:todo` / `status:in-progress` / `status:done`. This file mirrors it.
@@ -13,6 +13,16 @@ The live board is GitHub Issues on this repo, milestone **MVP 1**, with labels
 | T5 | Tools hub, Metronome, Chord Finder | agent-tools | `src/screens/{tools,metronome,chords}.ts` | done |
 | T6 | PWA: manifest, icons, offline service worker, GitHub Pages deploy | lead | `public/**`, `scripts/**`, `.github/**` | done |
 | T7 | Integration and QA at iPhone / iPad sizes | lead | any | done |
+
+## MVP 1.1 Songs
+
+Milestone **MVP 1.1 Songs**. Keys only ships public-domain music.
+
+| # | Ticket | Owner | Files (exclusive) | Status |
+|---|---|---|---|---|
+| T8 | Row, Row, Row Your Boat (6/8, Lyte 1881) | agent-songs | `src/songs/catalog.ts`, optional `meter` on `Song` | done |
+| T9 | Incy Wincy Spider (6/8, traditional) | agent-songs | `src/songs/catalog.ts` | done |
+| T10 | Lush Life (Zara Larsson, 2015) | — | none | todo · blocked:licence (copyrighted; route is a future "load your own MIDI/MusicXML" import, stored on device only) |
 
 ## Definition of done (every ticket)
 

@@ -122,6 +122,49 @@ const DEFS: SongDef[] = [
     easy: { evenDotted: true },
   },
   {
+    // 6/8 time: one "beat" here is an eighth note, so bpm is eighths per minute.
+    id: 'row-row-row-your-boat',
+    title: 'Row, Row, Row Your Boat',
+    composer: 'Traditional (tune: E. O. Lyte)',
+    blurb: 'Nursery round · 1881',
+    bpm: 170,
+    beatsPerBar: 6,
+    meter: '6/8',
+    key: 'C major',
+    tags: ['Beginner', 'Kids', 'Folk'],
+    melody: `
+      C4:3 C4:3 | C4:2 D4 E4:3 | E4:2 D4 E4:2 F4 | G4:6 |
+      C5 C5 C5 G4 G4 G4 | E4 E4 E4 C4 C4 C4 | G4:2 F4 E4:2 D4 | C4:6 |`,
+    harmony: 'C:6 | C:6 | C:6 | C:6 | C:6 | C:6 | G7:6 | C:6 |',
+    pattern: 'waltz',
+  },
+  {
+    // 6/8 time: one "beat" here is an eighth note, so bpm is eighths per minute.
+    // Also known as "The Itsy Bitsy Spider".
+    id: 'incy-wincy-spider',
+    title: 'Incy Wincy Spider',
+    composer: 'Traditional',
+    blurb: 'Nursery rhyme · c. 1910',
+    bpm: 160,
+    beatsPerBar: 6,
+    meter: '6/8',
+    key: 'C major',
+    tags: ['Beginner', 'Kids', 'Folk'],
+    melody: `
+      R:5 G3 |
+      C4:2 C4 C4:2 D4 | E4:3 E4:2 E4 | D4:2 C4 D4:2 E4 | C4:3 R:3 |
+      E4:3 E4:2 F4 | G4:6 | G4:2 F4 E4:2 F4 | G4:3 E4:3 |
+      C4:3 C4:2 D4 | E4:6 | E4:2 D4 C4:2 D4 | E4:3 C4 G3 G3 |
+      C4:2 C4 C4:2 D4 | E4:3 E4:2 E4 | D4:2 C4 D4:2 E4 | C4:6 |`,
+    harmony: `
+      R:6 |
+      C:6 | C:6 | C:3 G7:3 | C:6 |
+      C:6 | C:6 | G7:6 | C:6 |
+      F:6 | C:6 | C:3 G7:3 | C:6 |
+      C:6 | C:6 | C:3 G7:3 | C:6 |`,
+    pattern: 'waltz',
+  },
+  {
     id: 'au-clair-de-la-lune',
     title: 'Au Clair de la Lune',
     composer: 'Traditional (French)',
@@ -314,6 +357,7 @@ const DEFS: SongDef[] = [
     blurb: 'Bagatelle in A minor · 1810',
     bpm: 132,
     beatsPerBar: 3,
+    meter: '3/8',
     key: 'A minor',
     tags: ['Classical', 'Romantic'],
     melody: `
