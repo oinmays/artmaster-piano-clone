@@ -31,7 +31,12 @@ Milestone **MVP 1.2 Real piano input**. First real-keyboard test (iPad on the mu
 | # | Ticket | Owner | Files | Status |
 |---|---|---|---|---|
 | T11 | Mic check screen, live mic level + heard note in the player, "Accept any octave" (#12) | v1 | `src/screens/miccheck.ts`, `src/player/octave.ts`, `src/listen/**`, player, settings | done (53e6b38), awaiting real-piano check |
-| T12+ | USB MIDI keyboard input (planned in chat v3) | v3 | — | todo |
+| T12 | Wire Web MIDI into the player: 'midi' input mode, auto-connect + hot-plug, "MIDI: <device>" indicator, exact octave, MIDI section in Mic check; same path takes the iOS app's bridge (#13) | v3 | `src/listen/midi.ts`, `src/listen/index.ts`, `src/core/store.ts`, `src/screens/{player,settings,miccheck}.ts`, `tests/midi.test.ts` | done (dfe1413), awaiting real-keyboard check |
+| T13 | Platform detection + honest messaging: iPhone/iPad browsers can't read MIDI, say so and point to the iOS app or Chrome/Edge (#14) | v3 | `src/listen/platform.ts`, `tests/platform.test.ts` (UI via T12) | done (dfe1413), awaiting real-keyboard check |
+| T14 | Native iOS shell (WKWebView + CoreMIDI bridge), Simulator build, install-with-Xcode guide (#15) | v3 | `ios/**` | code in (8b64dcd), not yet compiled: Xcode licence unaccepted on the build Mac |
+| T15 | Cable and setup guide: Tools → Connect a keyboard + README (#16) | v3 | `src/screens/keyboardguide.ts`, route in `src/main.ts`, card in `src/screens/tools.ts`, `README.md` | done (dfe1413), awaiting real-keyboard check |
+
+Sequence: T12 + T13 ship first (keyboard works in Chrome/Edge on Mac/PC/Android, honest message on iPad), T15 ships with them, T14 follows (the only route on iPad/iPhone, because WebKit has no Web MIDI).
 
 ## Definition of done (every ticket)
 
