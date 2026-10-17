@@ -5,6 +5,8 @@ ArtMaster's **Artie** AI piano teacher. Pick a song, follow the falling notes, a
 app listens through the microphone and scores your accuracy and timing. It also has a
 tuner, a metronome and a chord finder.
 
+**Live app:** https://oinmays.github.io/artmaster-piano-clone/
+
 - How the original was studied: [`docs/recon.md`](docs/recon.md)
 - Work plan and ownership: [`TICKETS.md`](TICKETS.md)
 
@@ -19,7 +21,7 @@ npm run build      # outputs dist/
 
 ## Install on iPhone / iPad
 
-1. Open the deployed URL in **Safari**.
+1. Open https://oinmays.github.io/artmaster-piano-clone/ in **Safari**.
 2. Tap **Share**, then **Add to Home Screen**.
 3. Launch it from the home screen. It runs full-screen and works offline after the first load.
 
