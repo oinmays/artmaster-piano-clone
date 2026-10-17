@@ -36,6 +36,8 @@ export interface ExpectedNote {
   beat: number;
   dur: number;
   hand: Hand;
+  /** Suggested finger, 1–5 (src/player/fingering.ts). */
+  finger?: number;
   /** 1-based bar number in the song (same across loop passes). */
   bar: number;
 }

@@ -29,6 +29,8 @@ export interface KeyboardHandle {
   /** Set (or clear with null) a visual mark on a key. */
   mark(midi: number, mark: KeyMark | null): void;
   clearMarks(kind?: KeyMark): void;
+  /** Show (or clear with null) a finger-number badge just above a key, coloured by hand. */
+  finger(midi: number, finger: number | null, hand?: 'L' | 'R'): void;
   /** Horizontal centre and width of a key in px, relative to the keyboard element. */
   keyRect(midi: number): { x: number; w: number } | null;
   setShowNames(show: boolean): void;
@@ -52,6 +54,12 @@ const css = `
 .kb-key[data-mark='chord'] { background: var(--beige); color: #151514; }
 .kb-black[data-mark='chord'] { background: var(--text-muted); color: #151514; }
 .kb.no-names .kb-key span { display: none; }
+.kb-key[data-finger]::before { content: attr(data-finger); position: absolute; left: 50%; bottom: calc(100% + 6px);
+  transform: translateX(-50%); width: 20px; height: 20px; border-radius: 50%; z-index: 4; pointer-events: none;
+  font: 700 12px/20px Inter, system-ui, sans-serif; text-align: center; color: var(--hand-right);
+  background: #151514; box-shadow: 0 0 0 2px var(--hand-right); }
+.kb-key[data-fhand='L']::before { color: var(--hand-left); box-shadow: 0 0 0 2px var(--hand-left); }
+.kb-black[data-finger]::before { bottom: calc(100% + 30px); }
 `;
 
 let styled = false;
@@ -163,6 +171,17 @@ export function createKeyboard(container: HTMLElement, opts: KeyboardOptions): K
       if (!k) return;
       if (mark) k.dataset.mark = mark;
       else delete k.dataset.mark;
+    },
+    finger(midi, finger, hand) {
+      const k = keys.get(midi);
+      if (!k) return;
+      if (finger) {
+        k.dataset.finger = String(finger);
+        k.dataset.fhand = hand ?? 'R';
+      } else {
+        delete k.dataset.finger;
+        delete k.dataset.fhand;
+      }
     },
     clearMarks(kind) {
       keys.forEach((k) => {

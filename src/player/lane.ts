@@ -15,6 +15,8 @@ export interface LaneOptions {
   engine: Engine;
   keyboard: KeyboardHandle;
   showNames: boolean;
+  /** Suggested finger (1–5) in each scored note. */
+  showFingers: boolean;
   /** Called at the start of every frame (advance the engine, update UI). */
   onFrame?: (now: number) => void;
 }
@@ -27,12 +29,14 @@ export interface LaneHandle {
   /** Brief coloured glow above a key at the hit line. */
   flashKey(midi: number, kind: 'good' | 'bad'): void;
   setShowNames(show: boolean): void;
+  setShowFingers(show: boolean): void;
   /** Re-measure key positions (call after the keyboard is rebuilt or resized). */
   relayout(): void;
   destroy(): void;
 }
 
 const NAMES: string[] = Array.from({ length: 128 }, (_, m) => midiToName(m).replace(/-?\d+$/, ''));
+const DIGITS = ['', '1', '2', '3', '4', '5'];
 const HIT_FLASH_MS = 260;
 const KEY_FLASH_MS = 220;
 const FLOAT_MS = 650;
@@ -48,6 +52,7 @@ interface Float {
 export function createLane(opts: LaneOptions): LaneHandle {
   const { container, engine, keyboard } = opts;
   let showNames = opts.showNames;
+  let showFingers = opts.showFingers;
 
   const canvas = document.createElement('canvas');
   canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;';
@@ -164,10 +169,25 @@ export function createLane(opts: LaneOptions): LaneHandle {
       ctx.lineWidth = 1;
       ctx.stroke();
     }
-    if (showNames && !accomp && h > 16 && w > 11) {
+    // Finger number in a dark disc at the note's leading (bottom) edge; the name sits above it.
+    let nameY = bottom - 5;
+    const f = n.finger;
+    if (showFingers && !accomp && f && h >= 14 && w >= 12) {
+      const r = Math.min(8, w / 2 - 1, h / 2 - 1);
+      const cy = bottom - r - 2;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'rgba(21,21,20,0.82)';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = status === ST_MISSED ? '#9a948c' : right ? C.right : C.left;
+      ctx.fillText(DIGITS[f], x + w / 2, cy + 4);
+      nameY = cy - r - 4;
+    }
+    if (showNames && !accomp && w > 11 && nameY - top > 11) {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = status === ST_MISSED ? '#9a948c' : C.text;
-      ctx.fillText(NAMES[m], x + w / 2, bottom - 5);
+      ctx.fillText(NAMES[m], x + w / 2, nameY);
     }
     ctx.globalAlpha = 1;
   }
@@ -198,7 +218,7 @@ export function createLane(opts: LaneOptions): LaneHandle {
       ctx.fillRect(0, Math.round(y), W, 1);
     }
 
-    ctx.font = '600 11px Inter, system-ui, sans-serif';
+    ctx.font = '700 11px Inter, system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
 
@@ -285,6 +305,9 @@ export function createLane(opts: LaneOptions): LaneHandle {
     },
     setShowNames(show) {
       showNames = show;
+    },
+    setShowFingers(show) {
+      showFingers = show;
     },
     relayout,
     destroy() {

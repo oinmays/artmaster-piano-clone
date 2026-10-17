@@ -37,6 +37,8 @@ export interface Settings {
   input: 'mic' | 'touch' | 'midi';
   /** Show note names on keys and falling notes. */
   showNoteNames: boolean;
+  /** Show suggested finger numbers (1 = thumb … 5 = little) on falling notes and above due keys. */
+  showFingers: boolean;
   /** Extra latency compensation for the mic, in ms. */
   micLatencyMs: number;
   /** Mic only: count the right note in the wrong octave as correct (beginners rarely know which octave). */
@@ -56,6 +58,7 @@ export const DEFAULT_MIC_SENSITIVITY = 50;
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
   input: 'touch',
   showNoteNames: true,
+  showFingers: true,
   micLatencyMs: 80,
   anyOctave: true,
   volume: 0.8,

@@ -276,6 +276,10 @@ const screen: Screen = (root, params) => {
   const flashOf: (KeyMark | null)[] = new Array(128).fill(null);
   const flashUntil = new Float64Array(128);
   const shown: (KeyMark | null)[] = new Array(128).fill(null);
+  // Finger badges above the keys, for the same notes as the hints. 0 = none.
+  const fingerOf = new Uint8Array(128);
+  const fingerShown = new Uint8Array(128);
+  const showFingers = settings.showFingers;
   const group = { first: -1, end: -1 };
   let hintFirst = -2;
   let hintVisible = false;
@@ -295,12 +299,16 @@ const screen: Screen = (root, params) => {
     if (first !== hintFirst || visible !== hintVisible) {
       hintFirst = first;
       hintVisible = visible;
-      for (let m = keyboard.from; m <= keyboard.to; m++) hintOf[m] = null;
+      for (let m = keyboard.from; m <= keyboard.to; m++) {
+        hintOf[m] = null;
+        fingerOf[m] = 0;
+      }
       if (visible) {
         for (let i = group.first; i < group.end; i++) {
           if (s.status[i] !== ST_PENDING) continue;
           const n = s.notes[i];
           hintOf[n.midi] = n.hand === 'L' ? 'hint-L' : 'hint-R';
+          if (showFingers && n.finger) fingerOf[n.midi] = n.finger;
         }
       }
     }
@@ -309,6 +317,10 @@ const screen: Screen = (root, params) => {
       if (want !== shown[m]) {
         keyboard.mark(m, want);
         shown[m] = want;
+      }
+      if (fingerOf[m] !== fingerShown[m]) {
+        keyboard.finger(m, fingerOf[m] || null, hintOf[m] === 'hint-L' ? 'L' : 'R');
+        fingerShown[m] = fingerOf[m];
       }
     }
   }
@@ -331,6 +343,7 @@ const screen: Screen = (root, params) => {
     engine,
     keyboard,
     showNames: settings.showNoteNames,
+    showFingers: settings.showFingers,
     onFrame(now) {
       engine.tick(now);
       if (finished) return;

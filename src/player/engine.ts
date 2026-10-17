@@ -11,6 +11,7 @@
  * freezes on that group's beat until the scorer reports every note in it as played.
  */
 import type { NoteEvent, PlayOptions, PlayResult, Song } from '../core/types';
+import { assignFingering } from './fingering';
 import { getAudioContext, playClick, playNote, type Voice } from '../core/audio';
 import {
   ST_PENDING,
@@ -28,6 +29,7 @@ export interface RenderNote {
   beat: number;
   dur: number;
   hand: 'L' | 'R';
+  finger?: number;
 }
 
 export type EngineState = 'idle' | 'running' | 'paused' | 'finished';
@@ -76,6 +78,8 @@ export class Engine {
 
   private cb: EngineCallbacks;
   private scoredBase: NoteEvent[];
+  /** Finger per song note, for the lane and keyboard badges. */
+  private fingerOf: Map<NoteEvent, number>;
   private accompBase: NoteEvent[];
   private passes = 0;
   private anchorBeat: number;
@@ -119,6 +123,8 @@ export class Engine {
     }
     this.passLen = Math.max(this.bpb, this.regionEnd - this.regionStart);
 
+    const fingers = assignFingering(all);
+    this.fingerOf = new Map(all.map((n, i) => [n, fingers[i]]));
     const inRegion = all.filter((n) => n.start >= this.regionStart - 1e-6 && n.start < this.regionEnd - 1e-6);
     this.scoredBase = inRegion.filter((n) => handMatches(n.hand, opts.hands));
     // Like the original app: the hand you are not practising is played for you.
@@ -356,11 +362,12 @@ export class Engine {
       beat: n.start + off,
       dur: clip(n),
       hand: n.hand,
+      finger: this.fingerOf.get(n),
       bar: barOfBeat(n.start, this.bpb),
     }));
     this.scorer.add(batch);
     const acc = this.accompBase
-      .map((n) => ({ midi: n.midi, beat: n.start + off, dur: clip(n), hand: n.hand }))
+      .map((n) => ({ midi: n.midi, beat: n.start + off, dur: clip(n), hand: n.hand, finger: this.fingerOf.get(n) }))
       .sort((a, b) => a.beat - b.beat);
     for (const n of acc) this.accomp.push(n);
     this.passes++;

@@ -134,6 +134,10 @@ const screen: Screen = (root) => {
         <button class="stg-switch" role="switch" aria-labelledby="stg-names-l" data-act="names"></button>
       </div>
       <div class="stg-row">
+        <span class="stg-label" id="stg-fingers-l">Show finger numbers<span class="stg-sub">1 thumb, 2 index, 3 middle, 4 ring, 5 little. Suggested automatically.</span></span>
+        <button class="stg-switch" role="switch" aria-labelledby="stg-fingers-l" data-act="fingers"></button>
+      </div>
+      <div class="stg-row">
         <label for="stg-vol">Volume</label>
         <input id="stg-vol" class="stg-range" type="range" min="0" max="100" step="1">
         <span class="stg-val stg-vol-val"></span>
@@ -229,6 +233,14 @@ const screen: Screen = (root) => {
     renderNames();
   });
   renderNames();
+
+  const fingersBtn = $<HTMLButtonElement>('[data-act=fingers]');
+  const renderFingers = () => fingersBtn.setAttribute('aria-checked', String(s.showFingers));
+  fingersBtn.addEventListener('click', () => {
+    set({ showFingers: !s.showFingers });
+    renderFingers();
+  });
+  renderFingers();
 
   const octBtn = $<HTMLButtonElement>('[data-act=octave]');
   const renderOct = () => octBtn.setAttribute('aria-checked', String(s.anyOctave));

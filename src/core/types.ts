@@ -3,6 +3,8 @@
 export type Hand = 'L' | 'R';
 export type Level = 'easy' | 'medium' | 'hard';
 export type HandsMode = 'both' | 'L' | 'R';
+/** 1 = thumb, 2 = index, 3 = middle, 4 = ring, 5 = little finger. */
+export type Finger = 1 | 2 | 3 | 4 | 5;
 
 /** One note in a song. Times are in beats (quarter notes), not seconds. */
 export interface NoteEvent {
@@ -10,6 +12,8 @@ export interface NoteEvent {
   start: number;
   dur: number;
   hand: Hand;
+  /** Optional fingering override; otherwise src/player/fingering.ts picks one. */
+  finger?: Finger;
 }
 
 export interface Song {
