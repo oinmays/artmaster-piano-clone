@@ -1,0 +1,311 @@
+/**
+ * Standard MIDI File reader (format 0 and 1, PPQ timing) and conversion to a Keys Song.
+ * No dependencies; runs in the browser on a file the learner picked. Nothing is uploaded.
+ *
+ * Levels follow the same idea as catalog.ts:
+ *   easy   = right-hand melody only (the top note of each chord, one note at a time)
+ *   medium = melody + the left hand's lowest note on each onset (a bass line)
+ *   hard   = both hands as written (chords capped at 4 notes per hand)
+ */
+import type { Hand, NoteEvent, Song } from '../core/types';
+import { combine, sortNotes } from './notation';
+
+/** A friendly error: its message is shown to the learner as is. */
+export class MidiImportError extends Error {}
+
+export interface RawNote {
+  midi: number;
+  /** In ticks. */
+  start: number;
+  end: number;
+  velocity: number;
+  channel: number;
+  track: number;
+}
+
+export interface MidiFile {
+  format: number;
+  ppq: number;
+  /** Microseconds per quarter note of the first tempo event (500000 = 120 bpm). */
+  tempo: number;
+  timeSig: { num: number; den: number };
+  /** Key signature: sharps (+) or flats (−), and minor flag. */
+  keySig?: { sf: number; minor: boolean };
+  /** Track names by track index ('' when the track has none). */
+  trackNames: string[];
+  notes: RawNote[];
+}
+
+/** Parse the bytes of a .mid file. Throws MidiImportError on anything it can't read. */
+export function parseMidi(bytes: Uint8Array): MidiFile {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const str = (at: number) => String.fromCharCode(...bytes.subarray(at, at + 4));
+  const need = (at: number, n: number) => {
+    if (at + n > bytes.length) throw new MidiImportError('This MIDI file is cut short or damaged.');
+  };
+
+  if (bytes.length < 4 || str(0) !== 'MThd') throw new MidiImportError("This doesn't look like a MIDI file (.mid).");
+  need(0, 14);
+  const headLen = view.getUint32(4);
+  const format = view.getUint16(8);
+  const nTracks = view.getUint16(10);
+  const division = view.getUint16(12);
+  if (format > 1) throw new MidiImportError('This MIDI file uses format 2, which Keys can’t read. Try exporting it again as format 0 or 1.');
+  if (division & 0x8000) throw new MidiImportError('This MIDI file uses SMPTE timing, which Keys can’t read. Try exporting it again from your music app.');
+  const ppq = division || 480;
+
+  const out: MidiFile = { format, ppq, tempo: 0, timeSig: { num: 4, den: 4 }, trackNames: [], notes: [] };
+  let tempoAt = Infinity;
+  let sigAt = Infinity;
+  let keyAt = Infinity;
+  let pos = 8 + headLen;
+
+  for (let t = 0; t < nTracks && pos + 8 <= bytes.length; t++) {
+    const id = str(pos);
+    const len = view.getUint32(pos + 4);
+    pos += 8;
+    if (id !== 'MTrk') {
+      // Unknown chunk: skip it.
+      pos += len;
+      t--;
+      continue;
+    }
+    const end = Math.min(pos + len, bytes.length);
+    out.trackNames[t] = '';
+    const open = new Map<number, { start: number; velocity: number }[]>();
+    let tick = 0;
+    let status = 0;
+
+    const varlen = () => {
+      let v = 0;
+      for (let i = 0; i < 4; i++) {
+        need(pos, 1);
+        const b = bytes[pos++];
+        v = (v << 7) | (b & 0x7f);
+        if (!(b & 0x80)) return v;
+      }
+      throw new MidiImportError('This MIDI file is damaged (bad length).');
+    };
+    const noteOff = (ch: number, key: number) => {
+      const stack = open.get(ch * 128 + key);
+      const on = stack?.shift();
+      if (on) out.notes.push({ midi: key, start: on.start, end: tick, velocity: on.velocity, channel: ch, track: t });
+    };
+
+    while (pos < end) {
+      tick += varlen();
+      need(pos, 1);
+      let b = bytes[pos];
+      if (b & 0x80) {
+        pos++;
+      } else {
+        // Running status: reuse the last channel status; b is the first data byte.
+        if (!status) throw new MidiImportError('This MIDI file is damaged (no status byte).');
+        b = status;
+      }
+
+      if (b === 0xff) {
+        need(pos, 1);
+        const type = bytes[pos++];
+        const n = varlen();
+        need(pos, n);
+        const d = bytes.subarray(pos, pos + n);
+        pos += n;
+        if (type === 0x2f) break;
+        if (type === 0x03 && !out.trackNames[t]) out.trackNames[t] = new TextDecoder('latin1').decode(d).trim();
+        if (type === 0x51 && n >= 3 && tick < tempoAt) {
+          tempoAt = tick;
+          out.tempo = (d[0] << 16) | (d[1] << 8) | d[2];
+        }
+        if (type === 0x58 && n >= 2 && tick < sigAt) {
+          sigAt = tick;
+          out.timeSig = { num: d[0] || 4, den: 2 ** d[1] };
+        }
+        if (type === 0x59 && n >= 2 && tick < keyAt) {
+          keyAt = tick;
+          out.keySig = { sf: (d[0] << 24) >> 24, minor: d[1] === 1 };
+        }
+        // The spec says meta events cancel running status, but some writers rely on it surviving; keeping it is harmless.
+        continue;
+      }
+      if (b === 0xf0 || b === 0xf7) {
+        pos += varlen();
+        status = 0;
+        continue;
+      }
+      if (b >= 0xf0) throw new MidiImportError('This MIDI file is damaged (unexpected system message).');
+
+      status = b;
+      const kind = b & 0xf0;
+      const ch = b & 0x0f;
+      const size = kind === 0xc0 || kind === 0xd0 ? 1 : 2;
+      need(pos, size);
+      const d1 = bytes[pos];
+      const d2 = size === 2 ? bytes[pos + 1] : 0;
+      pos += size;
+
+      if (kind === 0x90 && d2 > 0) {
+        const k = ch * 128 + d1;
+        if (!open.has(k)) open.set(k, []);
+        open.get(k)!.push({ start: tick, velocity: d2 });
+      } else if (kind === 0x80 || kind === 0x90) {
+        noteOff(ch, d1);
+      }
+    }
+    // Close any note still held at the end of the track.
+    for (const [k, stack] of open) for (const _ of [...stack]) noteOff(Math.floor(k / 128), k % 128);
+    pos = end;
+  }
+
+  if (!out.tempo) out.tempo = 500000;
+  return out;
+}
+
+// ---- Conversion to a Song -----------------------------------------------------------------
+
+/** Quantise to sixteenth notes. */
+const GRID = 0.25;
+const EPS = 1e-6;
+const MAX_CHORD = 4;
+export const MAX_NOTES = 6000;
+
+const q = (beats: number) => Math.round(beats / GRID) * GRID;
+
+const RIGHT_NAME = /\b(right|r\.?h\.?|treble|melody|upper|lead|vocal|voice|soprano)\b/i;
+const LEFT_NAME = /\b(left|l\.?h\.?|bass|lower)\b/i;
+
+const MAJOR = ['C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'C♯', 'F', 'B♭', 'E♭', 'A♭', 'D♭', 'G♭', 'C♭'];
+const MINOR = ['A', 'E', 'B', 'F♯', 'C♯', 'G♯', 'D♯', 'A♯', 'D', 'G', 'C', 'F', 'B♭', 'E♭', 'A♭'];
+function keyName(k: MidiFile['keySig']): string {
+  if (!k || k.sf < -7 || k.sf > 7) return 'C major';
+  const i = k.sf >= 0 ? k.sf : 7 - k.sf;
+  return k.minor ? `${MINOR[i]} minor` : `${MAJOR[i]} major`;
+}
+
+/** Keep at most `max` notes per onset: the top ones for the right hand, the bottom ones for the left. */
+function capChords(notes: NoteEvent[], max: number, hand: Hand): NoteEvent[] {
+  const byStart = new Map<number, NoteEvent[]>();
+  for (const n of notes) {
+    if (!byStart.has(n.start)) byStart.set(n.start, []);
+    byStart.get(n.start)!.push(n);
+  }
+  const out: NoteEvent[] = [];
+  for (const group of byStart.values()) {
+    group.sort((a, b) => (hand === 'R' ? b.midi - a.midi : a.midi - b.midi));
+    out.push(...group.slice(0, max));
+  }
+  return sortNotes(out);
+}
+
+/** One note per onset (top for R, bottom for L), each ending by the next onset. */
+function line(notes: NoteEvent[], hand: Hand): NoteEvent[] {
+  const one = capChords(notes, 1, hand);
+  return one.map((n, i) => {
+    const next = one[i + 1];
+    return next && n.start + n.dur > next.start + EPS ? { ...n, dur: next.start - n.start } : { ...n };
+  });
+}
+
+/** Group key used to split hands: track in multi-track files, channel otherwise. */
+function groupsOf(notes: RawNote[], format: number): Map<number, RawNote[]> {
+  const tracks = new Set(notes.map((n) => n.track));
+  const byTrack = format === 1 && tracks.size > 1;
+  const g = new Map<number, RawNote[]>();
+  for (const n of notes) {
+    const k = byTrack ? n.track : n.channel;
+    if (!g.has(k)) g.set(k, []);
+    g.get(k)!.push(n);
+  }
+  return g;
+}
+
+export interface ConvertOptions {
+  id: string;
+  title: string;
+}
+
+/** Turn a parsed MIDI file into a Song with easy, medium and hard levels. */
+export function midiToSong(midi: MidiFile, opts: ConvertOptions): Song {
+  // Channel 10 (index 9) is drums.
+  const pitched = midi.notes.filter((n) => n.channel !== 9);
+  if (!pitched.length) throw new MidiImportError('This MIDI file has no piano notes in it (only drums, or nothing at all).');
+
+  // Decide which notes belong to each hand.
+  const groups = [...groupsOf(pitched, midi.format).entries()].map(([key, notes]) => {
+    const name = midi.format === 1 && new Set(pitched.map((n) => n.track)).size > 1 ? (midi.trackNames[key] ?? '') : '';
+    return { name, notes, avg: notes.reduce((s, n) => s + n.midi, 0) / notes.length };
+  });
+  let hand: (n: RawNote) => Hand | null;
+  if (groups.length === 1) {
+    // One part: split at middle C.
+    hand = (n) => (n.midi >= 60 ? 'R' : 'L');
+  } else {
+    const named = (re: RegExp) => groups.find((g) => re.test(g.name));
+    const byPitch = [...groups].sort((a, b) => b.avg - a.avg);
+    const right = named(RIGHT_NAME) ?? byPitch[0];
+    const left = named(LEFT_NAME) ?? byPitch.filter((g) => g !== right).at(-1)!;
+    hand = (n) => (right.notes.includes(n) ? 'R' : left.notes.includes(n) ? 'L' : null);
+  }
+
+  let notes: NoteEvent[] = [];
+  for (const n of pitched) {
+    const h = hand(n);
+    if (!h) continue;
+    const start = q(n.start / midi.ppq);
+    const end = Math.max(start + GRID, q(n.end / midi.ppq));
+    notes.push({ midi: n.midi, start, dur: end - start, hand: h });
+  }
+  // Drop duplicates the quantiser created (same pitch, same hand, same onset).
+  const seen = new Set<string>();
+  notes = notes.filter((n) => {
+    const k = `${n.hand}${n.midi}@${n.start}`;
+    return seen.has(k) ? false : (seen.add(k), true);
+  });
+
+  let right = notes.filter((n) => n.hand === 'R');
+  let left = notes.filter((n) => n.hand === 'L');
+  if (!right.length) {
+    // Everything was low: treat it all as the right hand so easy still has a melody.
+    right = left.map((n) => ({ ...n, hand: 'R' as Hand }));
+    left = [];
+  }
+
+  // Start at the bar holding the first note.
+  const beatsPerBar = (midi.timeSig.num * 4) / midi.timeSig.den;
+  const first = Math.min(...right.map((n) => n.start), ...left.map((n) => n.start));
+  const shift = Math.floor(first / beatsPerBar + EPS) * beatsPerBar;
+  const move = (list: NoteEvent[]) => list.map((n) => ({ ...n, start: n.start - shift }));
+  right = capChords(move(right), MAX_CHORD, 'R');
+  left = capChords(move(left), MAX_CHORD, 'L');
+
+  const hard = combine(right, left);
+  if (hard.length > MAX_NOTES) {
+    throw new MidiImportError(`This song has ${hard.length.toLocaleString()} notes; Keys can load up to ${MAX_NOTES.toLocaleString()}. Try a shorter or simpler arrangement.`);
+  }
+  const melody = line(right, 'R');
+  const bpm = Math.max(20, Math.min(300, Math.round(60_000_000 / midi.tempo)));
+  const meter = midi.timeSig.den === 4 ? undefined : `${midi.timeSig.num}/${midi.timeSig.den}`;
+
+  return {
+    id: opts.id,
+    title: opts.title,
+    composer: 'Imported MIDI',
+    blurb: `My song · ${hard.length} notes`,
+    bpm,
+    beatsPerBar,
+    ...(meter ? { meter } : {}),
+    key: keyName(midi.keySig),
+    tags: ['My songs'],
+    levels: {
+      easy: melody,
+      medium: combine(melody, line(left, 'L')),
+      hard,
+    },
+  };
+}
+
+/** "my_song-01.mid" -> "My song 01" */
+export function titleFromFileName(name: string): string {
+  const base = name.replace(/\.(midi?|kar)$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return (base.charAt(0).toUpperCase() + base.slice(1)).slice(0, 80) || 'My song';
+}

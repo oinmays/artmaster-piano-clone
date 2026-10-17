@@ -20,6 +20,16 @@ export function save<T>(key: string, value: T): void {
   }
 }
 
+/** Like save(), but says whether it worked (false when storage is full or blocked). */
+export function trySave<T>(key: string, value: T): boolean {
+  try {
+    localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---- Settings ---------------------------------------------------------------
 
 export interface Settings {

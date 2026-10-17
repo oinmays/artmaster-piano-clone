@@ -55,7 +55,7 @@ function weekHtml(results: PlayResult[]): string {
 
 function itemHtml(r: PlayResult): string {
   const song = getSong(r.songId);
-  const title = song?.title ?? r.songId;
+  const title = song?.title ?? (r.songId.startsWith('my-') ? 'Deleted song' : r.songId);
   const hands = r.hands === 'both' ? 'both hands' : r.hands === 'L' ? 'left hand' : 'right hand';
   const inner = `<b>${esc(title)}</b><span class="pg-acc">${Math.round(r.accuracy)}%</span>
     <span class="pg-meta">${LEVEL_LABEL[r.level] ?? r.level} · ${hands} · ${r.tempo}% · ${esc(formatDate(r.at))}</span>${starsHtml(r.stars)}`;

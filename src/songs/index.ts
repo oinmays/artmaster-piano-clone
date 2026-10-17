@@ -1,14 +1,16 @@
 import type { Level, NoteEvent, Song } from '../core/types';
 import { CATALOG } from './catalog';
 import { lengthBeats } from './notation';
+import { getMySong } from './mine';
 
 export { NOTATION_ERRORS } from './notation';
 
 /** All songs, ordered from easiest to hardest. */
 export const SONGS: Song[] = CATALOG;
 
+/** A built-in song, or one the learner imported ("my-…" ids). */
 export function getSong(id: string): Song | undefined {
-  return SONGS.find((s) => s.id === id);
+  return SONGS.find((s) => s.id === id) ?? getMySong(id);
 }
 
 /** Every tag used in the library, in first-seen order. */
