@@ -62,7 +62,7 @@ Milestone **MVP 1.3 Fingers, songs, versions**. Requested after the first sensit
 | T19 | Finger numbers (1 thumb … 5 little finger) on falling notes and target keys, auto-fingered, Settings toggle (#20) | t19 | `src/player/fingering.ts`, `tests/fingering.test.ts`, player/lane/keyboard rendering, `src/core/store.ts`, Settings → Display | done (621653f) |
 | T20 | Version, build date/time and commit in Settings; changelog screen generated from git history at build (#21) | v4-t18 | `vite.config.ts`, `.github/workflows/deploy.yml`, `src/screens/changelog.ts`, route in `src/main.ts`, Settings footer, `sw/sw.js` | done (f714bc4) |
 | T21 | Load your own song: MIDI file import, on device only, "My songs" in the library (#22) | t21 | `src/songs/midifile.ts`, `src/songs/mine.ts`, `tests/midifile.test.ts`, library screen | done (4403328) |
-| T22 | 6–8 more public-domain songs (#23) | t22 | `src/songs/catalog.ts` | in progress |
+| T22 | 6–8 more public-domain songs (#23): Aura Lee, Silent Night, Brahms' Lullaby, Auld Lang Syne, Scarborough Fair, The Entertainer | t22 | `src/songs/catalog.ts` | done (5007aa1) |
 
 T19–T22 run as parallel chats in separate worktrees; each rebases on origin/main, passes typecheck/test/build, pushes to main and watches the deploy.
 
