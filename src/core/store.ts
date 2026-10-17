@@ -29,6 +29,8 @@ export interface Settings {
   showNoteNames: boolean;
   /** Extra latency compensation for the mic, in ms. */
   micLatencyMs: number;
+  /** Mic/MIDI: count the right note in the wrong octave as correct (beginners rarely know which octave). */
+  anyOctave: boolean;
   volume: number;
   a4: number;
 }
@@ -37,6 +39,7 @@ const DEFAULT_SETTINGS: Settings = {
   input: 'touch',
   showNoteNames: true,
   micLatencyMs: 80,
+  anyOctave: true,
   volume: 0.8,
   a4: 440,
 };

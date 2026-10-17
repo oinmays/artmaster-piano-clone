@@ -8,13 +8,14 @@ import { onNoteOn } from '../core/input';
 import { unlockAudio } from '../core/audio';
 import { navigate } from '../core/router';
 import { addResult, getSettings, updateSettings } from '../core/store';
-import { isBlack } from '../core/music';
+import { isBlack, midiToName } from '../core/music';
 import { getSong } from '../songs';
 import { micErrorMessage, micSupported, startMic, type Listener } from '../listen';
 import { Engine, clampTempo } from '../player/engine';
 import { createLane } from '../player/lane';
 import { parsePlayParams, playPath } from '../player/options';
 import { ST_PENDING } from '../player/scoring';
+import { expandOctaves, octaveMatch } from '../player/octave';
 
 const CSS = `
 .kp { display: flex; flex-direction: column; height: 100dvh; background: var(--bg); position: relative;
@@ -59,6 +60,16 @@ const CSS = `
 .kp-seg button[aria-pressed='true'] { background: var(--beige); color: var(--bg); }
 .kp-seg button:disabled { opacity: 0.4; }
 .kp-go { min-height: 56px; font-size: 1.125rem; }
+.kp-mic { display: flex; align-items: center; gap: 0.375rem; padding: 0 0.5rem; min-height: 36px; border-radius: var(--radius-pill);
+  background: var(--surface-2); border: 1px solid var(--surface-3); font-size: 0.8125rem; font-weight: 600; flex: none; }
+.kp-mic[hidden] { display: none; }
+.kp-mic-bar { width: 34px; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.kp-mic-bar i { display: block; height: 100%; width: 0; background: var(--text-muted); }
+.kp-mic.is-loud .kp-mic-bar i { background: var(--good); }
+.kp-mic span { min-width: 2.2em; font-variant-numeric: tabular-nums; }
+.kp-mic span[data-ok='1'] { color: var(--good); }
+.kp-mic span[data-ok='0'] { color: var(--bad); }
+.kp-link { font-size: 0.8125rem; color: var(--accent); }
 .kp-msg { font-size: 0.875rem; color: var(--warn); margin: 0; }
 .kp-rotate { font-size: 0.8125rem; color: var(--text-muted); margin: 0; display: flex; gap: 0.375rem;
   align-items: center; justify-content: center; }
@@ -163,6 +174,7 @@ const screen: Screen = (root, params) => {
         <div class="kp-name"></div>
         <div class="kp-prog" role="progressbar" aria-label="Progress"><i></i></div>
       </div>
+      <div class="kp-mic" hidden title="Microphone: level and last note heard"><div class="kp-mic-bar"><i></i></div><span>–</span></div>
       <div class="kp-tempo">
         <button class="kp-ibtn" data-act="slower" aria-label="Slower">${ICON.minus}</button>
         <span aria-live="polite"></span>
@@ -385,7 +397,8 @@ const screen: Screen = (root, params) => {
       ${seg('Input', [
         ['touch', 'Touch keys', !useMic],
         ['mic', 'Microphone', useMic, !micOk],
-      ])}</div>
+      ])}
+      <a class="kp-link" href="#/tools/mic">Test the microphone first</a></div>
       ${seg('Guide notes', [
         ['off', 'Just me', !playAlong],
         ['on', 'Play along', playAlong],
@@ -430,7 +443,14 @@ const screen: Screen = (root, params) => {
     let warn = '';
     if (getSettings().input === 'mic' && micSupported()) {
       try {
-        const l = await startMic({ a4: settings.a4, expected: () => engine.expectedNow() });
+        const l = await startMic({
+          a4: settings.a4,
+          expected: micExpected,
+          onFrame: (f) => {
+            micLevel = f.rms;
+            micGate = f.gate;
+          },
+        });
         if (disposed) {
           l.stop();
           return;
@@ -441,6 +461,10 @@ const screen: Screen = (root, params) => {
       }
     }
     if (disposed) return;
+    if (mic) {
+      micEl.hidden = false;
+      drawMic();
+    }
     overlay.hidden = true;
     engine.start(performance.now());
     renderTop();
@@ -484,10 +508,34 @@ const screen: Screen = (root, params) => {
     else if (act === 'end') engine.finish();
   });
 
+  // ---- Mic feedback -----------------------------------------------------------
+  const micEl = $('.kp-mic');
+  const micFill = $('.kp-mic-bar i');
+  const micNote = $('.kp-mic span');
+  let micLevel = 0;
+  let micGate = 1;
+  let micRaf = 0;
+  const drawMic = () => {
+    micRaf = requestAnimationFrame(drawMic);
+    const db = 20 * Math.log10(Math.max(micLevel, 1e-6));
+    micFill.style.width = `${Math.max(0, Math.min(100, ((db + 80) / 70) * 100))}%`;
+    micEl.classList.toggle('is-loud', micLevel >= micGate);
+  };
+
+  const expandedBuf: number[] = [];
+  const micExpected = (): number[] =>
+    settings.anyOctave ? expandOctaves(engine.expectedNow(), expandedBuf) : engine.expectedNow();
+
   // ---- Input ------------------------------------------------------------------
   // Mic notes arrive already latency-compensated by the listen module.
   const offNote = onNoteOn((n) => {
-    engine.input(n.midi, n.time);
+    let midi = n.midi;
+    if (n.source !== 'touch' && settings.anyOctave) midi = octaveMatch(midi, engine.expectedNow());
+    if (n.source === 'mic') {
+      micNote.textContent = midiToName(n.midi);
+      micNote.dataset.ok = engine.expectedNow().includes(midi) ? '1' : '0';
+    }
+    engine.input(midi, n.time);
   });
 
   // ---- Lifecycle --------------------------------------------------------------
@@ -519,6 +567,7 @@ const screen: Screen = (root, params) => {
     window.removeEventListener('pagehide', onPageHide);
     sectionEl.removeEventListener('gesturestart', noGesture);
     sectionEl.removeEventListener('touchmove', noScroll);
+    cancelAnimationFrame(micRaf);
     mic?.stop();
     mic = null;
     lane.destroy();

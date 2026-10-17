@@ -27,5 +27,6 @@ export default defineConfig({
   base: './',
   plugins: [serviceWorker()],
   build: { target: 'es2022', sourcemap: true },
-  test: { environment: 'node' },
+  // Worktrees for parallel chats live under .claude/; never run their copies of the tests.
+  test: { environment: 'node', exclude: ['**/node_modules/**', 'dist/**', '.claude/**'] },
 } as never);

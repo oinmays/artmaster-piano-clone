@@ -11,6 +11,24 @@ export interface MicOptions {
    * Defaults to the saved `settings.micLatencyMs`.
    */
   latencyMs?: number;
+  /** Called every analysis frame (~80/s) for meters and diagnostics. */
+  onFrame?: (f: MicFrameInfo) => void;
+  /** Also run single-note pitch detection every frame and report it in `onFrame` (costs CPU). */
+  livePitch?: boolean;
+}
+
+export interface MicFrameInfo {
+  /** RMS of the newest samples. */
+  rms: number;
+  /** Adaptive noise floor (RMS). */
+  floor: number;
+  /** Level the sound must exceed to count as playing (RMS). */
+  gate: number;
+  /** True on the frame a new note starts. */
+  onset: boolean;
+  /** Live pitch in Hz (0 = none); only when `livePitch` is set. */
+  freq: number;
+  clarity: number;
 }
 
 export interface Listener {

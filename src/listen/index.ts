@@ -12,7 +12,7 @@ import { startMic as startMicImpl } from './mic';
 import { startMidi as startMidiImpl } from './midi';
 import type { Listener, MicOptions } from './types';
 
-export type { Listener, MicOptions, PitchFrame, PitchStreamOptions } from './types';
+export type { Listener, MicFrameInfo, MicOptions, PitchFrame, PitchStreamOptions } from './types';
 export { startPitchStream } from './mic';
 export { listMidiInputs } from './midi';
 export { micErrorMessage, MicError } from './source';

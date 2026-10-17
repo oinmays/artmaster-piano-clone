@@ -65,6 +65,18 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
     const fluxMag = magnitudeSpectrum(samples, fluxSize);
     const isOnset = onsets.process({ time: f.time, rms: level, mag: fluxMag, sampleRate: sr });
     const open = onsets.gateOpen(level);
+    if (opts.onFrame) {
+      let freq = 0;
+      let clarity = 0;
+      if (opts.livePitch && open) {
+        const yinSize = Math.min(W, pow2(sr * 0.043));
+        const r = detectPitch(samples.subarray(W - yinSize), sr, { minFreq: 50, maxFreq: 2200 });
+        freq = r.freq;
+        clarity = r.clarity;
+      }
+      const floor = onsets.floor.floor;
+      opts.onFrame({ rms: level, floor, gate: Math.max(floor * 2.5, 0.0008), onset: isOnset, freq, clarity });
+    }
 
     const expected = opts.expected?.() ?? [];
     const needSpectrum = expected.length > 0 || active.size > 0 || pending != null;

@@ -95,6 +95,18 @@ const screen: Screen = (root) => {
     </div>
 
     <div class="card stg-card">
+      <h2>Listening</h2>
+      <div class="stg-row">
+        <span class="stg-label" id="stg-oct-l">Accept any octave<span class="stg-sub">Count the right note even if it's played higher or lower than shown.</span></span>
+        <button class="stg-switch" role="switch" aria-labelledby="stg-oct-l" data-act="octave"></button>
+      </div>
+      <div class="stg-row">
+        <span class="stg-label">Mic check<span class="stg-sub">See the level and the note the microphone hears.</span></span>
+        <a class="btn btn--sm" href="#/tools/mic">Open</a>
+      </div>
+    </div>
+
+    <div class="card stg-card">
       <h2>Display and sound</h2>
       <div class="stg-row">
         <span class="stg-label" id="stg-names-l">Show note names</span>
@@ -190,6 +202,14 @@ const screen: Screen = (root) => {
     renderNames();
   });
   renderNames();
+
+  const octBtn = $<HTMLButtonElement>('[data-act=octave]');
+  const renderOct = () => octBtn.setAttribute('aria-checked', String(s.anyOctave));
+  octBtn.addEventListener('click', () => {
+    set({ anyOctave: !s.anyOctave });
+    renderOct();
+  });
+  renderOct();
 
   const vol = $<HTMLInputElement>('#stg-vol');
   const volVal = $('.stg-vol-val');

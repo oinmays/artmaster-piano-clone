@@ -18,6 +18,7 @@ route('/progress', () => import('./screens/progress').then((m) => m.default));
 route('/tools', () => import('./screens/tools').then((m) => m.default));
 route('/tools/metronome', () => import('./screens/metronome').then((m) => m.default));
 route('/tools/chords', () => import('./screens/chords').then((m) => m.default));
+route('/tools/mic', () => import('./screens/miccheck').then((m) => m.default));
 route('/tools/tuner', () => import('./screens/tuner').then((m) => m.default));
 route('/settings', () => import('./screens/settings').then((m) => m.default));
 

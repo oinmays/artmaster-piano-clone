@@ -24,6 +24,15 @@ Milestone **MVP 1.1 Songs**. Keys only ships public-domain music.
 | T9 | Incy Wincy Spider (6/8, traditional) | agent-songs | `src/songs/catalog.ts` | done |
 | T10 | Lush Life (Zara Larsson, 2015) | — | none | todo · blocked:licence (copyrighted; route is a future "load your own MIDI/MusicXML" import, stored on device only) |
 
+## MVP 1.2 Real piano input
+
+Milestone **MVP 1.2 Real piano input**. First real-keyboard test (iPad on the music stand, mic on) registered no notes.
+
+| # | Ticket | Owner | Files | Status |
+|---|---|---|---|---|
+| T11 | Mic check screen, live mic level + heard note in the player, "Accept any octave" (#12) | v1 | `src/screens/miccheck.ts`, `src/player/octave.ts`, `src/listen/**`, player, settings | in progress |
+| T12+ | USB MIDI keyboard input (planned in chat v3) | v3 | — | todo |
+
 ## Definition of done (every ticket)
 
 - `npm run typecheck` and `npm test` pass.
