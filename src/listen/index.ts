@@ -19,6 +19,18 @@ export { startPitchStream } from './mic';
 export { listMidiInputs, midiPermission, parseMidiMessage, type MidiMessage, type MidiOptions } from './midi';
 export { midiHelp, midiPlatform, midiPossible, type MidiHelp, type MidiPlatform } from './platform';
 export { micErrorMessage, MicError } from './source';
+export {
+  BASE_GATE,
+  BASE_MIN_RMS,
+  BASE_MIN_SNR,
+  DEFAULT_SENSITIVITY_FACTOR,
+  gateFromFloor,
+  minSnrFor,
+  sensitivityFactor,
+  SENSITIVITY_DEFAULT,
+  SENSITIVITY_MAX,
+  SENSITIVITY_MIN,
+} from './sensitivity';
 
 /** Ask for the mic and start publishing noteOn events. Rejects if permission is denied. */
 export async function startMic(opts: MicOptions = {}): Promise<Listener> {

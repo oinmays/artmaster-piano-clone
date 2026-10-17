@@ -15,6 +15,11 @@ export interface MicOptions {
   onFrame?: (f: MicFrameInfo) => void;
   /** Also run single-note pitch detection every frame and report it in `onFrame` (costs CPU). */
   livePitch?: boolean;
+  /**
+   * Mic sensitivity 0–100 (same scale as settings.micSensitivity). When set, it is used
+   * instead of the saved setting and settings changes no longer update it.
+   */
+  sensitivity?: number;
 }
 
 export interface MicFrameInfo {
@@ -22,7 +27,7 @@ export interface MicFrameInfo {
   rms: number;
   /** Adaptive noise floor (RMS). */
   floor: number;
-  /** Level the sound must exceed to count as playing (RMS). */
+  /** Level the sound must exceed to count as playing (RMS), at the current sensitivity. */
   gate: number;
   /** True on the frame a new note starts. */
   onset: boolean;
@@ -49,6 +54,8 @@ export interface PitchFrame {
   onset: boolean;
   /** Current adaptive noise floor (RMS). */
   floor: number;
+  /** Level the sound must exceed to count as playing (RMS), at the current sensitivity. */
+  gate: number;
 }
 
 export interface PitchStreamOptions {
@@ -56,4 +63,9 @@ export interface PitchStreamOptions {
   maxFreq?: number;
   /** Analysis window for YIN; default ~85 ms (4096 at 48 kHz). */
   windowSize?: number;
+  /**
+   * Mic sensitivity 0–100 (same scale as settings.micSensitivity). When set, it is used
+   * instead of the saved setting and settings changes no longer update it.
+   */
+  sensitivity?: number;
 }

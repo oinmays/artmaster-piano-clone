@@ -33,23 +33,41 @@ export interface Settings {
   anyOctave: boolean;
   volume: number;
   a4: number;
+  /**
+   * Mic only, 0–100: how quiet a note may be and still count. Higher = quieter notes count.
+   * Mapped to a threshold scale factor by sensitivityFactor() in src/listen/sensitivity.ts.
+   */
+  micSensitivity: number;
 }
 
-const DEFAULT_SETTINGS: Settings = {
+/** Default mic sensitivity: threshold factor 0.75, 25% lower than before T16. */
+export const DEFAULT_MIC_SENSITIVITY = 50;
+
+export const DEFAULT_SETTINGS: Readonly<Settings> = {
   input: 'touch',
   showNoteNames: true,
   micLatencyMs: 80,
   anyOctave: true,
   volume: 0.8,
   a4: 440,
+  micSensitivity: DEFAULT_MIC_SENSITIVITY,
 };
 
 export const getSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...load<Partial<Settings>>('settings', {}) });
 
+const settingsListeners = new Set<(s: Settings) => void>();
+
 export function updateSettings(patch: Partial<Settings>): Settings {
   const next = { ...getSettings(), ...patch };
   save('settings', next);
+  settingsListeners.forEach((cb) => cb(next));
   return next;
+}
+
+/** Called after every updateSettings(). Returns an unsubscribe function. */
+export function onSettingsChange(cb: (s: Settings) => void): () => void {
+  settingsListeners.add(cb);
+  return () => settingsListeners.delete(cb);
 }
 
 // ---- Progress ---------------------------------------------------------------

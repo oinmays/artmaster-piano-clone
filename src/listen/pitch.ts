@@ -12,6 +12,7 @@
  *
  * Everything is sample-rate agnostic and safe to unit test in Node.
  */
+import { BASE_GATE, BASE_MIN_RMS, BASE_MIN_SNR, DEFAULT_SENSITIVITY_FACTOR } from './sensitivity';
 
 // ---------------------------------------------------------------------------
 // FFT
@@ -224,7 +225,10 @@ export function detectPitch(buf: ArrayLike<number>, sampleRate: number, opts: Pi
 
 export interface ConfirmOptions {
   a4?: number;
-  /** Required peak-to-local-floor magnitude ratio. Default 5 (~14 dB). */
+  /**
+   * Required peak-to-local-floor magnitude ratio. Default 5 (~14 dB), the factor-1.0 value;
+   * the mic listener passes minSnrFor(sensitivityFactor) (4.33 at the default sensitivity).
+   */
   minSnr?: number;
   /** How far (cents) a partial may sit from its ideal frequency. Default 40. */
   tolCents?: number;
@@ -298,7 +302,7 @@ export function confirmNotes(
   opts: ConfirmOptions = {},
 ): NoteEvidence[] {
   const a4 = opts.a4 ?? 440;
-  const minSnr = opts.minSnr ?? 5;
+  const minSnr = opts.minSnr ?? BASE_MIN_SNR;
   const tolCents = opts.tolCents ?? 40;
   const riseRatio = opts.riseRatio ?? 1.6;
   const binHz = sampleRate / fftSize;
@@ -429,10 +433,19 @@ export interface OnsetOptions {
   energyRise?: number;
   /** Highest frequency (Hz) used for flux. Default 6000. */
   maxFluxHz?: number;
-  /** RMS must be this many times the noise floor. Default 2.5 (≈ 8 dB). */
+  /** RMS must be this many times the noise floor, at sensitivity factor 1. Default 2.5 (≈ 8 dB). */
   gate?: number;
-  /** Absolute RMS gate. Default 0.0008. */
+  /** Absolute RMS gate at sensitivity factor 1. Default 0.0008. */
   minRms?: number;
+  /**
+   * Sensitivity factor (sensitivityFactor() in ./sensitivity). Scales `gate` and `minRms` only.
+   * Default 0.75 (settings default 50). 1.0 reproduces the pre-T16 thresholds.
+   *
+   * Not scaled, on purpose: `energyRise`, `k`, `delta` (flux) are ratios/relative measures of
+   * change, not loudness, so a quiet note produces the same relative jump as a loud one;
+   * lowering them would only add false onsets from noise flicker.
+   */
+  sensitivity?: number;
 }
 
 export interface OnsetFrame {
@@ -469,20 +482,37 @@ export class OnsetDetector {
       delta: 0.015,
       energyRise: 1.8,
       maxFluxHz: 6000,
-      gate: 2.5,
-      minRms: 0.0008,
+      gate: BASE_GATE,
+      minRms: BASE_MIN_RMS,
+      sensitivity: DEFAULT_SENSITIVITY_FACTOR,
       ...opts,
     };
   }
 
+  /** Current sensitivity factor. */
+  get sensitivity(): number {
+    return this.o.sensitivity;
+  }
+
+  /** Change the sensitivity factor live (no reset of the floor or onset state). */
+  setSensitivity(factor: number): void {
+    if (Number.isFinite(factor) && factor > 0) this.o.sensitivity = factor;
+  }
+
+  /** The RMS the signal must reach to count as playing: max(floor · gate · f, minRms · f). */
+  gateLevel(): number {
+    const f = this.o.sensitivity;
+    return Math.max(this.floor.floor * this.o.gate * f, this.o.minRms * f);
+  }
+
   /** Whether the current frame is above the noise gate. */
   gateOpen(rmsValue: number): boolean {
-    return rmsValue >= Math.max(this.floor.floor * this.o.gate, this.o.minRms);
+    return rmsValue >= this.gateLevel();
   }
 
   process(f: OnsetFrame): boolean {
-    const floor = this.floor.update(f.rms);
-    const open = f.rms >= Math.max(floor * this.o.gate, this.o.minRms);
+    this.floor.update(f.rms);
+    const open = this.gateOpen(f.rms);
 
     // Spectral flux.
     let flux = 0;
@@ -510,9 +540,16 @@ export class OnsetDetector {
     }
     this.flux = flux;
 
-    // Energy rise vs. the quietest of the last few frames.
+    // Energy rise vs. the quietest of the last few frames, and clearly above the loudest of them
+    // (by √energyRise, ≈ +2.5 dB). The second test rejects ripple: a hop (~12 ms) is shorter
+    // than one cycle of 50/60 Hz mains hum or a low piano fundamental, so per-hop RMS of a
+    // perfectly steady hum swings ~2× from frame to frame. Its peaks beat the troughs by 1.8×
+    // but never beat earlier peaks; a real attack beats both. Without this, high sensitivity
+    // (gate < ~1.6× floor) turned 50 Hz hum into a stream of onsets.
     const prevMin = this.rmsHist.length ? Math.min(...this.rmsHist) : Infinity;
-    const energyOnset = f.rms > prevMin * this.o.energyRise && this.rmsHist.length >= 2;
+    const prevMax = this.rmsHist.length ? Math.max(...this.rmsHist) : 0;
+    const energyOnset =
+      this.rmsHist.length >= 2 && f.rms > prevMin * this.o.energyRise && f.rms > prevMax * Math.sqrt(this.o.energyRise);
     this.rmsHist.push(f.rms);
     if (this.rmsHist.length > 5) this.rmsHist.shift();
     if (!fluxOnset && !energyOnset) this.armed = true;

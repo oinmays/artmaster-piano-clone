@@ -8,10 +8,17 @@
  *     pre-onset spectrum). Otherwise (or if nothing confirms) fall back to YIN monophonic.
  *     Each pitch is emitted at most once per onset, timestamped at the onset.
  *  3. Active notes get a noteOff when their partials vanish or the signal drops under the gate.
+ *
+ * Sensitivity (settings.micSensitivity → sensitivityFactor f) scales the loudness thresholds:
+ * the RMS gate and absolute minimum (×f, inside OnsetDetector) and the chord-confirmation SNR
+ * (×√f, minSnrFor). YIN clarity (0.85), flux k/delta, energy rise and the baseline rise ratio
+ * are left alone: they measure signal quality or relative change, not loudness. The setting
+ * is followed live through onSettingsChange; no restart needed.
  */
 import { emitNoteOff, emitNoteOn } from '../core/input';
-import { getSettings } from '../core/store';
+import { getSettings, onSettingsChange } from '../core/store';
 import { confirmNotes, detectPitch, freqToNote, magnitudeSpectrum, OnsetDetector, rms } from './pitch';
+import { minSnrFor, sensitivityFactor } from './sensitivity';
 import { openMic, type RawFrame } from './source';
 import type { Listener, MicOptions, PitchFrame, PitchStreamOptions } from './types';
 
@@ -22,6 +29,19 @@ const OFF_MISSES = 8; // ≈ 100 ms without partials → noteOff
 const MAX_NOTE_MS = 10000;
 
 const pow2 = (x: number) => 2 ** Math.round(Math.log2(x));
+
+/**
+ * Apply the sensitivity now and keep following settings.micSensitivity, unless the caller
+ * pinned one. Returns the unsubscribe function.
+ */
+function trackSensitivity(override: number | undefined, apply: (factor: number) => void): () => void {
+  if (override != null) {
+    apply(sensitivityFactor(override));
+    return () => {};
+  }
+  apply(sensitivityFactor(getSettings().micSensitivity));
+  return onSettingsChange((s) => apply(sensitivityFactor(s.micSensitivity)));
+}
 
 interface Pending {
   time: number;
@@ -42,6 +62,11 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
   const a4 = opts.a4 ?? settings.a4;
   const latency = opts.latencyMs ?? settings.micLatencyMs;
   const onsets = new OnsetDetector();
+  let minSnr = minSnrFor(onsets.sensitivity);
+  const untrack = trackSensitivity(opts.sensitivity, (f) => {
+    onsets.setSensitivity(f);
+    minSnr = minSnrFor(f);
+  });
   const active = new Map<number, Active>();
   let pending: Pending | null = null;
   const specHistory: Float32Array[] = [];
@@ -74,8 +99,7 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
         freq = r.freq;
         clarity = r.clarity;
       }
-      const floor = onsets.floor.floor;
-      opts.onFrame({ rms: level, floor, gate: Math.max(floor * 2.5, 0.0008), onset: isOnset, freq, clarity });
+      opts.onFrame({ rms: level, floor: onsets.floor.floor, gate: onsets.gateLevel(), onset: isOnset, freq, clarity });
     }
 
     const expected = opts.expected?.() ?? [];
@@ -99,7 +123,7 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
       if (p.frame >= FIRST_CHECK && open) {
         let confirmedAny = p.emitted.size > 0;
         if (expected.length && spec) {
-          const res = confirmNotes(spec, sr, W, expected, { a4, baseline: p.baseline ?? undefined });
+          const res = confirmNotes(spec, sr, W, expected, { a4, minSnr, baseline: p.baseline ?? undefined });
           for (const r of res) {
             if (r.present && !p.emitted.has(r.midi)) {
               p.emitted.add(r.midi);
@@ -132,7 +156,7 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
       if (!open) {
         [...active.keys()].forEach((m) => noteOff(m, f.time));
       } else if (spec) {
-        const res = confirmNotes(spec, sr, W, [...active.keys()], { a4 });
+        const res = confirmNotes(spec, sr, W, [...active.keys()], { a4, minSnr });
         for (const r of res) {
           const a = active.get(r.midi)!;
           const justStarted = pending?.emitted.has(r.midi);
@@ -150,12 +174,19 @@ export async function startMic(opts: MicOptions = {}): Promise<Listener> {
     }
   };
 
-  const src = await openMic(onFrame);
+  let src: Awaited<ReturnType<typeof openMic>>;
+  try {
+    src = await openMic(onFrame);
+  } catch (e) {
+    untrack();
+    throw e;
+  }
   let stopped = false;
   return {
     stop() {
       if (stopped) return;
       stopped = true;
+      untrack();
       src.stop();
       const now = performance.now();
       [...active.keys()].forEach((m) => noteOff(m, now));
@@ -172,23 +203,36 @@ export async function startPitchStream(
   opts: PitchStreamOptions = {},
 ): Promise<Listener> {
   const onsets = new OnsetDetector();
-  const src = await openMic(
-    (f) => {
-      const { samples, hop, sampleRate: sr } = f;
-      const W = samples.length;
-      const level = rms(samples, Math.max(0, W - hop), W);
-      const fluxMag = magnitudeSpectrum(samples, Math.min(W, pow2(sr * 0.021)));
-      const onset = onsets.process({ time: f.time, rms: level, mag: fluxMag, sampleRate: sr });
-      let freq = 0;
-      let clarity = 0;
-      if (onsets.gateOpen(level)) {
-        const r = detectPitch(samples, sr, { minFreq: opts.minFreq ?? 50, maxFreq: opts.maxFreq ?? 2200 });
-        freq = r.freq;
-        clarity = r.clarity;
-      }
-      cb({ freq, clarity, rms: level, time: f.time, onset, floor: onsets.floor.floor });
+  const onFrame = (f: RawFrame) => {
+    const { samples, hop, sampleRate: sr } = f;
+    const W = samples.length;
+    const level = rms(samples, Math.max(0, W - hop), W);
+    const fluxMag = magnitudeSpectrum(samples, Math.min(W, pow2(sr * 0.021)));
+    const onset = onsets.process({ time: f.time, rms: level, mag: fluxMag, sampleRate: sr });
+    let freq = 0;
+    let clarity = 0;
+    if (onsets.gateOpen(level)) {
+      const r = detectPitch(samples, sr, { minFreq: opts.minFreq ?? 50, maxFreq: opts.maxFreq ?? 2200 });
+      freq = r.freq;
+      clarity = r.clarity;
+    }
+    cb({ freq, clarity, rms: level, time: f.time, onset, floor: onsets.floor.floor, gate: onsets.gateLevel() });
+  };
+  const untrack = trackSensitivity(opts.sensitivity, (f) => onsets.setSensitivity(f));
+  let src: Awaited<ReturnType<typeof openMic>>;
+  try {
+    src = await openMic(onFrame, { windowSize: opts.windowSize });
+  } catch (e) {
+    untrack();
+    throw e;
+  }
+  let stopped = false;
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      untrack();
+      src.stop();
     },
-    { windowSize: opts.windowSize },
-  );
-  return { stop: () => src.stop() };
+  };
 }
