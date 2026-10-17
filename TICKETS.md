@@ -35,8 +35,8 @@ Milestone **MVP 1.2 Real piano input**. First real-keyboard test (iPad on the mu
 | T13 | Platform detection + honest messaging: iPhone/iPad browsers can't read MIDI, say so and point to the iOS app or Chrome/Edge (#14) | v3 | `src/listen/platform.ts`, `tests/platform.test.ts` (UI via T12) | done (dfe1413), awaiting real-keyboard check |
 | T14 | Native iOS shell (WKWebView + CoreMIDI bridge), Simulator build, install-with-Xcode guide (#15) | v3 | `ios/**` | code in (8b64dcd), not yet compiled: Xcode licence unaccepted on the build Mac |
 | T15 | Cable and setup guide: Tools → Connect a keyboard + README (#16) | v3 | `src/screens/keyboardguide.ts`, route in `src/main.ts`, card in `src/screens/tools.ts`, `README.md` | done (dfe1413), awaiting real-keyboard check |
-| T16 | Mic sensitivity setting in the engine: `micSensitivity` 0–100 → one threshold factor, default 0.75 (gate 2.5× → 1.875× floor, minRms 0.0008 → 0.0006), one source of truth, live updates (#17) | v4 | `src/listen/**`, `src/core/store.ts`, `tests/pitch.test.ts` | in progress |
-| T17 | Sensitivity slider under the meter on Mic check (yellow line moves live) and in Settings → Listening with Reset to default (#18) | v4 | `src/screens/miccheck.ts`, `src/screens/settings.ts` | in progress |
+| T16 | Mic sensitivity setting in the engine: `micSensitivity` 0–100 → one threshold factor, default 0.75 (gate 2.5× → 1.875× floor, minRms 0.0008 → 0.0006), one source of truth, live updates (#17) | v4 | `src/listen/**`, `src/core/store.ts`, `tests/sensitivity.test.ts` | done (6b36ddd), awaiting real-piano check |
+| T17 | Sensitivity slider under the meter on Mic check (yellow line moves live) and in Settings → Listening with Reset to default (#18) | v4 | `src/screens/miccheck.ts`, `src/screens/settings.ts` | done (be93ee5), awaiting real-piano check |
 
 Sequence: T12 + T13 ship first (keyboard works in Chrome/Edge on Mac/PC/Android, honest message on iPad), T15 ships with them, T14 follows (the only route on iPad/iPhone, because WebKit has no Web MIDI).
 
