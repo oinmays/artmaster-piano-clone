@@ -2,7 +2,7 @@ import type { Screen, Song } from '../core/types';
 import { SONGS, allTags } from '../songs';
 import { esc, injectStyle, songCardHtml } from '../songs/ui';
 import { MidiImportError } from '../songs/midifile';
-import { deleteMySong, importMidiFile, mySongs, renameMySong } from '../songs/mine';
+import { deleteMySong, importFile, mySongs, renameMySong, getMySong } from '../songs/mine';
 
 const css = `
 .lb-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
@@ -171,7 +171,7 @@ const screen: Screen = (root) => {
     loadBtn.disabled = true;
     say('Reading your file…');
     try {
-      const song = await importMidiFile(file);
+      const song = getMySong((await importFile(file)).songId)!;
       say(`Added “${song.title}”: ${song.levels.hard.length} notes, ${song.bpm} BPM.`);
       editing = confirming = '';
       renderMine();

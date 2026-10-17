@@ -21,6 +21,8 @@ export interface RawNote {
   velocity: number;
   channel: number;
   track: number;
+  /** General MIDI program (0-based, 0 = Acoustic Grand) active on the channel when the note started; undefined if none was set. (T26) */
+  program?: number;
 }
 
 export interface MidiFile {
@@ -33,7 +35,36 @@ export interface MidiFile {
   keySig?: { sf: number; minor: boolean };
   /** Track names by track index ('' when the track has none). */
   trackNames: string[];
+  /** Sequence name: the first track's name in format 1 files, the only track's name in format 0. (T26/T25) */
+  sequenceName?: string;
+  /** Copyright notice meta events (0x02), in file order. (T26/T25) */
+  copyright?: string[];
+  /** Text meta events (0x01), in file order. (T26/T25) */
+  texts?: string[];
   notes: RawNote[];
+}
+
+/** What the learner chose for a track: right hand, left hand, split at middle C, or ignored. (T26) */
+export type TrackRole = 'R' | 'L' | 'split' | 'off';
+/** Roles by String(TrackInfo.key). (T26) */
+export type TrackRoles = Record<string, TrackRole>;
+
+/** One playable part of a MIDI file, as shown on the Tracks sheet. (T26) */
+export interface TrackInfo {
+  /** Group key: the track index in multi-track format 1 files, the channel otherwise (same grouping midiToSong uses). */
+  key: number;
+  /** Track name from the file ('' when none). */
+  name: string;
+  /** Friendly label, e.g. "Piano (RH)", "Bass", "Strings 2". */
+  label: string;
+  /** GM program (0-based) of the first program change in the part, or null. */
+  program: number | null;
+  /** Channel of most of the notes (0-based; 9 = drums). */
+  channel: number;
+  drums: boolean;
+  notes: number;
+  low: number;
+  high: number;
 }
 
 /** Parse the bytes of a .mid file. Throws MidiImportError on anything it can't read. */
@@ -222,6 +253,20 @@ function groupsOf(notes: RawNote[], format: number): Map<number, RawNote[]> {
 export interface ConvertOptions {
   id: string;
   title: string;
+  /** Shown as the song's composer line; defaults to 'Imported MIDI'. */
+  composer?: string;
+  /** Which tracks play which hand (T26). Defaults to autoRoles(listTracks(midi)). */
+  roles?: TrackRoles;
+}
+
+/** The playable parts of a file, drums included (flagged), in key order. (T26 — stub) */
+export function listTracks(_midi: MidiFile): TrackInfo[] {
+  throw new Error('T26: listTracks not built yet');
+}
+
+/** Pick hands automatically: piano/keys tracks first, drums off. (T26 — stub) */
+export function autoRoles(_tracks: TrackInfo[]): TrackRoles {
+  throw new Error('T26: autoRoles not built yet');
 }
 
 /** Turn a parsed MIDI file into a Song with easy, medium and hard levels. */
