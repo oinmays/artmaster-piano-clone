@@ -186,6 +186,28 @@ const DEFS: SongDef[] = [
     pattern: 'pulse',
   },
   {
+    // The tune Elvis later reused for "Love Me Tender" (1956); only the 1861 melody is used here.
+    id: 'aura-lee',
+    title: 'Aura Lee',
+    composer: 'George R. Poulton',
+    blurb: 'Parlour song · 1861',
+    bpm: 80,
+    beatsPerBar: 4,
+    key: 'C major',
+    tags: ['Beginner', 'Folk'],
+    melody: `
+      G4 C5 B4 C5 | D5 A4 D5:2 | C5 B4 A4 B4 | C5:4 |
+      G4 C5 B4 C5 | D5 A4 D5:2 | C5 B4 A4 B4 | C5:4 |
+      E5 E5 E5 E5 | E5 E5 E5:2 | E5 D5 C5 D5 | E5:4 |
+      E5 E5 F5 E5 | D5 A4 D5:2 | C5 B4 A4 B4 | C5:4 |`,
+    harmony: `
+      C:4 | D7:4 | G7:4 | C:4 |
+      C:4 | D7:4 | G7:4 | C:4 |
+      C:4 | E7:4 | Am:4 | C7:4 |
+      F:4 | D7:4 | G7:4 | C:4 |`,
+    pattern: 'pulse',
+  },
+  {
     id: 'ode-to-joy',
     title: 'Ode to Joy',
     composer: 'Ludwig van Beethoven',
@@ -251,6 +273,57 @@ const DEFS: SongDef[] = [
     easy: { evenDotted: true, mergeEighths: true },
   },
   {
+    // 6/8 time: one "beat" here is an eighth note, so bpm is eighths per minute.
+    id: 'silent-night',
+    title: 'Silent Night',
+    composer: 'Franz Xaver Gruber',
+    blurb: 'Carol "Stille Nacht" · 1818',
+    bpm: 132,
+    beatsPerBar: 6,
+    meter: '6/8',
+    key: 'C major',
+    tags: ['Holiday', 'Hymn'],
+    melody: `
+      G4:3 A4 G4:2 | E4:6 | G4:3 A4 G4:2 | E4:6 |
+      D5:4 D5:2 | B4:6 | C5:4 C5:2 | G4:6 |
+      A4:4 A4:2 | C5:3 B4 A4:2 | G4:3 A4 G4:2 | E4:6 |
+      A4:4 A4:2 | C5:3 B4 A4:2 | G4:3 A4 G4:2 | E4:6 |
+      D5:4 D5:2 | F5:3 D5 B4:2 | C5:6 | E5:6 |
+      C5:3 G4 E4:2 | G4:3 F4 D4:2 | C4:6 |`,
+    harmony: `
+      C:6 | C:6 | C:6 | C:6 |
+      G7:6 | G7:6 | C:6 | C:6 |
+      F:6 | F:6 | C:6 | C:6 |
+      F:6 | F:6 | C:6 | C:6 |
+      G7:6 | G7:6 | C:6 | C:6 |
+      C:6 | G7:6 | C:6 |`,
+    pattern: 'waltzArp',
+  },
+  {
+    id: 'brahms-lullaby',
+    title: "Brahms' Lullaby",
+    composer: 'Johannes Brahms',
+    blurb: 'Wiegenlied, Op. 49 No. 4 · 1868',
+    bpm: 80,
+    beatsPerBar: 3,
+    key: 'C major',
+    tags: ['Classical', 'Romantic', 'Kids'],
+    melody: `
+      R:2 E4:0.5 E4:0.5 |
+      G4:2 E4:0.5 E4:0.5 | G4:2 E4:0.5 G4:0.5 | C5 B4:1.5 A4:0.5 | A4 G4 D4:0.5 E4:0.5 |
+      F4 D4 D4:0.5 E4:0.5 | F4:2 D4:0.5 F4:0.5 | B4:0.5 A4:0.5 G4 B4 | C5:2 C4:0.5 C4:0.5 |
+      C5:2 A4:0.5 F4:0.5 | G4:2 E4:0.5 C4:0.5 | F4 G4 A4 | G4:2 C4:0.5 C4:0.5 |
+      C5:2 A4:0.5 F4:0.5 | G4:2 E4:0.5 C4:0.5 | F4 E4:0.5 D4:0.5 C4 | C4:3 |`,
+    harmony: `
+      R:3 |
+      C:3 | C:3 | C:1 G7:2 | G7:3 |
+      G7:3 | G7:3 | G7:3 | C:3 |
+      F:3 | C:3 | G7:3 | C:3 |
+      F:3 | C:3 | G7:2 C:1 | C:3 |`,
+    pattern: 'waltzArp',
+    easy: { mergeEighths: true },
+  },
+  {
     id: 'amazing-grace',
     title: 'Amazing Grace',
     composer: 'Traditional (tune "New Britain")',
@@ -273,6 +346,53 @@ const DEFS: SongDef[] = [
       G:3 | G:2 D:1 | G:3 |`,
     pattern: 'waltz',
     easy: { mergeEighths: true },
+  },
+  {
+    id: 'auld-lang-syne',
+    title: 'Auld Lang Syne',
+    composer: 'Traditional (Scottish)',
+    blurb: 'Folk song · tune printed 1799',
+    bpm: 84,
+    beatsPerBar: 4,
+    key: 'F major',
+    tags: ['Folk', 'Holiday'],
+    melody: `
+      R:3 C4 |
+      F4:1.5 F4:0.5 F4 A4 | G4:1.5 F4:0.5 G4 A4 | F4:1.5 F4:0.5 A4 C5 | D5:3 D5 |
+      C5:1.5 A4:0.5 A4 F4 | G4:1.5 F4:0.5 G4 A4 | F4:1.5 D4:0.5 D4 C4 | F4:3 D5 |
+      C5:1.5 A4:0.5 A4 F4 | G4:1.5 F4:0.5 G4 D5 | C5:1.5 A4:0.5 A4 C5 | D5:3 F5 |
+      C5:1.5 A4:0.5 A4 F4 | G4:1.5 F4:0.5 G4 A4 | F4:1.5 D4:0.5 D4 C4 | F4:3 R |`,
+    harmony: `
+      R:4 |
+      F:4 | C7:4 | F:4 | Bb:4 |
+      F:4 | C7:4 | Bb:2 C7:2 | F:4 |
+      F:4 | C7:4 | F:4 | Bb:4 |
+      F:4 | C7:4 | Bb:2 C7:2 | F:4 |`,
+    pattern: 'pulse',
+    easy: { evenDotted: true },
+  },
+  {
+    // The melody most people know (Dorian mode on D); traditional, not any later arrangement.
+    id: 'scarborough-fair',
+    title: 'Scarborough Fair',
+    composer: 'Traditional (English)',
+    blurb: 'Folk ballad · traditional',
+    bpm: 96,
+    beatsPerBar: 3,
+    key: 'D Dorian',
+    tags: ['Folk'],
+    melody: `
+      D4:2 D4 | A4:2 A4 | E4:1.5 F4:0.5 E4 | D4:3 |
+      R A4 C5 | D5:2 C5 | A4 B4 G4 | A4:3 |
+      R:2 D5 | D5:2 D5 | C5:2 A4 | A4 G4 F4 | E4 C4:2 |
+      D4:2 A4 | G4:2 F4 | E4 D4 C4 | D4:3 |`,
+    harmony: `
+      Dm:3 | Dm:3 | C:3 | Dm:3 |
+      Dm:3 | Dm:3 | G:3 | Dm:3 |
+      Dm:3 | Dm:3 | F:3 | Dm:3 | C:3 |
+      Dm:3 | C:3 | C:3 | Dm:3 |`,
+    pattern: 'waltzArp',
+    easy: { evenDotted: true },
   },
   {
     id: 'canon-in-d',
@@ -378,6 +498,36 @@ const DEFS: SongDef[] = [
       E2:0.5 E3:0.5 G#3:0.5 R:1.5 | A2:0.5 E3:0.5 A3:0.5 R:1.5 |
       R:3 | A2:0.5 E3:0.5 A3:0.5 R:1.5 |
       E2:0.5 E3:0.5 G#3:0.5 R:1.5 | A2:0.5 E3:0.5 A3:2 |`,
+  },
+  {
+    // 2/4 time: one "beat" here is an eighth note, so bpm is eighths per minute.
+    // The first 12 bars of the A strain; some notes are tied across bar lines.
+    id: 'the-entertainer',
+    title: 'The Entertainer (opening)',
+    composer: 'Scott Joplin',
+    blurb: 'Ragtime two-step · 1902',
+    bpm: 150,
+    beatsPerBar: 4,
+    meter: '2/4',
+    key: 'C major',
+    tags: ['Jazz', 'Classical'],
+    melody: `
+      R:3 D4:0.5 D#4:0.5 |
+      E4:0.5 C5 E4:0.5 C5 E4:0.5 C5:2.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 |
+      C5:0.5 D5:0.5 E5 B4:0.5 D5 C5:2.5 R D4:0.5 D#4:0.5 |
+      E4:0.5 C5 E4:0.5 C5 E4:0.5 C5:3.5 A4:0.5 G4:0.5 |
+      F#4:0.5 A4:0.5 C5 E5:0.5 D5 C5:0.5 | A4:0.5 D5:2 R:0.5 D4:0.5 D#4:0.5 |
+      E4:0.5 C5 E4:0.5 C5 E4:0.5 C5:2.5 C5:0.5 D5:0.5 D#5:0.5 E5:0.5 |
+      C5:0.5 D5:0.5 E5 B4:0.5 D5 C5:4.5 |`,
+    harmony: `
+      R:4 |
+      C:4 | C:4 |
+      C:2 G7:2 | C:4 |
+      C:4 | C:4 |
+      D7:4 | G:4 |
+      C:4 | C:4 |
+      C:2 G7:2 | C:4 |`,
+    pattern: 'pulse',
   },
 ];
 
