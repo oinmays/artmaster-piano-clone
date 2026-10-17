@@ -7,7 +7,9 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((c) => c.addAll(PRECACHE))
+      // cache: 'reload' skips the HTTP cache (Pages serves max-age=600), so a fresh worker
+      // never precaches the previous build's index.html.
+      .then((c) => c.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' }))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -25,10 +27,11 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
 
-  // Pages: network first so updates arrive, cached shell when offline.
+  // Pages: network first so updates arrive, cached shell when offline. 'no-cache' revalidates
+  // with the server instead of taking a stale HTTP-cached index.html, so a reload gets a new deploy.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./index.html', copy));

@@ -22,6 +22,7 @@ route('/tools/mic', () => import('./screens/miccheck').then((m) => m.default));
 route('/tools/keyboard', () => import('./screens/keyboardguide').then((m) => m.default));
 route('/tools/tuner', () => import('./screens/tuner').then((m) => m.default));
 route('/settings', () => import('./screens/settings').then((m) => m.default));
+route('/settings/changelog', () => import('./screens/changelog').then((m) => m.default));
 
 // ---- Shell ------------------------------------------------------------------
 const icon = (d: string) =>
@@ -54,9 +55,38 @@ setVolume(getSettings().volume);
 // Any first touch unlocks Web Audio on iOS.
 window.addEventListener('pointerdown', () => void unlockAudio(), { once: true, capture: true });
 
-// ---- Offline support -------------------------------------------------------
+// ---- Offline support and updates --------------------------------------------
+// sw.js activates a new build as soon as it installs (skipWaiting + clients.claim). When that
+// happens under an open page, offer a reload; the page itself is still the old build.
+function showUpdateBar(): void {
+  if (document.querySelector('.update-bar')) return;
+  const style = document.createElement('style');
+  style.textContent = `.update-bar { position: fixed; z-index: 50; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + 0.75rem); min-height: 44px; max-width: calc(100vw - 2rem);
+  padding: 0 1.25rem; border-radius: var(--radius-pill); border: 0; background: var(--accent); color: #fff;
+  font: inherit; font-weight: 600; box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); cursor: pointer; }`;
+  const bar = document.createElement('button');
+  bar.className = 'update-bar';
+  bar.textContent = 'Update available, tap to reload';
+  bar.addEventListener('click', () => location.reload());
+  document.head.appendChild(style);
+  document.body.appendChild(bar);
+}
+
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) showUpdateBar();
+    });
+    navigator.serviceWorker
+      .register('./sw.js')
+      .then((reg) => {
+        // Home-screen apps stay open for days: look for a new build whenever the app comes back.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
+      })
+      .catch(() => {});
   });
 }

@@ -15,6 +15,7 @@ import {
 } from '../listen';
 import { freqToNote } from '../listen/pitch';
 import { SENSITIVITY_MAX, SENSITIVITY_MIN } from '../listen/sensitivity';
+import { versionFooter } from './changelog';
 
 const css = `
 .stg { display: flex; flex-direction: column; gap: 1rem; max-width: 720px; }
@@ -177,6 +178,8 @@ const screen: Screen = (root) => {
         <li>A digital piano with a MIDI or USB cable is the most accurate, where your browser supports MIDI.</li>
       </ul>
     </div>
+
+    ${versionFooter()}
   </section>`;
 
   const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T & Element>(sel)! as T;
