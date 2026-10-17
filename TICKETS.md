@@ -37,7 +37,7 @@ Milestone **MVP 1.2 Real piano input**. First real-keyboard test (iPad on the mu
 | T15 | Cable and setup guide: Tools → Connect a keyboard + README (#16) | v3 | `src/screens/keyboardguide.ts`, route in `src/main.ts`, card in `src/screens/tools.ts`, `README.md` | done (dfe1413), awaiting real-keyboard check |
 | T16 | Mic sensitivity setting in the engine: `micSensitivity` 0–100 → one threshold factor, default 0.75 (gate 2.5× → 1.875× floor, minRms 0.0008 → 0.0006), one source of truth, live updates (#17) | v4 | `src/listen/**`, `src/core/store.ts`, `tests/sensitivity.test.ts` | done (6b36ddd), awaiting real-piano check |
 | T17 | Sensitivity slider under the meter on Mic check (yellow line moves live) and in Settings → Listening with Reset to default (#18) | v4 | `src/screens/miccheck.ts`, `src/screens/settings.ts` | done (be93ee5), awaiting real-piano check |
-| T18 | Wider mic sensitivity range: more sensitive top end, default unchanged, hum/noise still rejected (#19) | v4-t18 | `src/listen/sensitivity.ts`, `src/listen/pitch.ts`, `tests/sensitivity.test.ts` | in progress |
+| T18 | Wider mic sensitivity range: more sensitive top end, default unchanged, hum/noise still rejected (#19) | v4-t18 | `src/listen/sensitivity.ts`, `src/listen/pitch.ts`, `tests/sensitivity.test.ts` | done (7f5abdf), awaiting real-piano check |
 
 Sequence: T12 + T13 ship first (keyboard works in Chrome/Edge on Mac/PC/Android, honest message on iPad), T15 ships with them, T14 follows (the only route on iPad/iPhone, because WebKit has no Web MIDI).
 
